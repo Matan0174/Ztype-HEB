@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZType בעברית - משחק הקלדה מהיר</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div id="hud-top">
+                <div class="hud-item">ניקוד: <span id="score-value">0</span></div>
+                <div class="hud-item high-score">שיא: <span id="high-score-value">0</span></div>
+                <div class="hud-item">שלב: <span id="level-value">1</span></div>
+            </div>
+            
+            <div id="combo-container">
+                <div id="combo-display" class="hidden">x<span id="combo-value">1</span></div>
+            </div>
+
+            <div id="controls-hint">
+                <button id="toggle-sound" class="icon-btn">🔊</button>
+            </div>
+            
+            <!-- Main Menu -->
+            <div id="main-menu" class="screen active">
+                <h1 class="glitch-title">ZType IL</h1>
+                <p class="subtitle">הגן על הספינה שלך באמצעות כוח המילים</p>
+                
+                
+                <div class="menu-list">
+                    <button id="menu-start-btn" class="neon-btn">משחק חדש</button>
+                    <button id="menu-guide-btn" class="neon-btn secondary">איך משחקים?</button>
+                    <button id="menu-about-btn" class="neon-btn secondary">אודות</button>
+                </div>
+            </div>
+
+            <!-- Guide Screen -->
+            <div id="guide-screen" class="screen">
+                <h2>מדריך למשחק</h2>
+                <div class="content-box guide-layout">
+                    <div class="guide-section">
+                        <h3>🕹️ איך משחקים?</h3>
+                        <ul>
+                            <li>הקלד את המילים שמופיעות ליד ספינות האויב.</li>
+                            <li><strong>האות הראשונה</strong> שתקליד "תנעל" את הכוונת על אויב ספציפי.</li>
+                            <li>המשך להקליד את שאר המילה כדי להשמיד אותו.</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="guide-section">
+                        <h3>⭐ ניקוד וקומבו</h3>
+                        <ul>
+                            <li>כל אות שווה ניקוד.</li>
+                            <li><strong>רצף ללא טעויות</strong> מעלה את ה"קומבו" שמכפיל את הניקוד!</li>
+                            <li>טעות בהקלדה מאפסת את הקומבו (אך לא את הנעילה).</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>🚀 טיפים למתקדמים</h3>
+                        <ul>
+                            <li>הגן קודם כל על האויבים הקרובים ביותר לתחתית.</li>
+                            <li>בשלבים מתקדמים יופיעו "בוסים" עם מילים ארוכות - הזהר מהם!</li>
+                            <li>השתמש ב-ESC (או הכפתור בפינה) לביטול/החזרת מוזיקה.</li>
+                        </ul>
+                    </div>
+                </div>
+                <button class="neon-btn back-btn" data-target="guide-screen">הבנתי, בוא נתחיל!</button>
+            </div>
+
+            <!-- About Screen -->
+            <div id="about-screen" class="screen">
+                <h2>אודות</h2>
+                <div class="content-box">
+                    <p>המשחק פותח בהשראת ZType המקורי.</p>
+                    <p>גרסה עברית זו נוצרה כדי לתרגל הקלדה עיוורת בצורה כיפית.</p>
+                    <p>מנוע המשחק נבנה ב-Canvas ו-Vanilla JS.</p>
+                </div>
+                <button class="neon-btn back-btn" data-target="about-screen">חזרה</button>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="game-over-screen" class="screen">
+                <h2>המשחק נגמר</h2>
+                <p>הניקוד שלך: <span id="final-score">0</span></p>
+                <p class="new-high-score hidden">🏆 שיא חדש! 🏆</p>
+                <div class="menu-list">
+                    <button id="restart-btn" class="neon-btn">נסה שוב</button>
+                    <button id="home-btn" class="neon-btn secondary">תפריט ראשי</button>
+                </div>
+            </div>
+
+            <!-- Level Complete Screen -->
+            <div id="level-complete-screen" class="screen">
+                <h2 style="color: var(--accent-color); text-shadow: 0 0 20px var(--accent-color);">השלב הושלם!</h2>
+                <p>כל הכבוד! סיימת את שלב <span id="completed-level-num">1</span></p>
+                <p>בונוס שלב: <span id="level-bonus">0</span></p>
+                <button id="next-level-btn" class="neon-btn">לשלב הבא</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="words.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
