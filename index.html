@@ -23,7 +23,8 @@
             </div>
 
             <div id="controls-hint">
-                <button id="toggle-sound" class="icon-btn">🔊</button>
+                <button id="pause-game-btn" class="icon-btn hidden" title="השהה משחק">⏸️</button>
+                <button id="toggle-sound" class="icon-btn" title="השתק/הפעל שמע">🔊</button>
             </div>
             
             <!-- Main Menu -->
@@ -101,6 +102,15 @@
                 <p>כל הכבוד! סיימת את שלב <span id="completed-level-num">1</span></p>
                 <p>בונוס שלב: <span id="level-bonus">0</span></p>
                 <button id="next-level-btn" class="neon-btn">לשלב הבא</button>
+            </div>
+
+            <!-- Pause Screen -->
+            <div id="pause-screen" class="screen">
+                <h2>משחק מושהה</h2>
+                <div class="menu-list">
+                    <button id="resume-btn" class="neon-btn">המשך</button>
+                    <button id="pause-home-btn" class="neon-btn secondary">תפריט ראשי</button>
+                </div>
             </div>
         </div>
     </div>

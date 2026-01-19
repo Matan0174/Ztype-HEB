@@ -45,6 +45,10 @@ const comboValue = document.getElementById('combo-value');
 const toggleSoundBtn = document.getElementById('toggle-sound');
 const newHighScoreEl = document.querySelector('.new-high-score');
 const gameContainer = document.getElementById('game-container');
+const pauseGameBtn = document.getElementById('pause-game-btn');
+const pauseScreen = document.getElementById('pause-screen');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseHomeBtn = document.getElementById('pause-home-btn');
 
 // Buttons
 const menuStartBtn = document.getElementById('menu-start-btn');
@@ -351,6 +355,25 @@ function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     // Show requested
     document.getElementById(screenId).classList.add('active');
+
+    // Manage Pause Button Visibility
+    if (screenId === 'main-menu' || screenId === 'game-over-screen') {
+        if(pauseGameBtn) pauseGameBtn.classList.add('hidden');
+    }
+}
+
+function togglePause() {
+    if (gameState === 'playing') {
+        gameState = 'paused';
+        showScreen('pause-screen');
+        if(audioCtx.state === 'running') audioCtx.suspend();
+    } else if (gameState === 'paused') {
+        gameState = 'playing';
+        showScreen('none'); // Hide all screens
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
 }
 
 function startGame() {
@@ -368,7 +391,8 @@ function startGame() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     
     newHighScoreEl.classList.add('hidden'); 
-    
+    if(pauseGameBtn) pauseGameBtn.classList.remove('hidden');
+
     if (audioCtx.state === 'suspended') audioCtx.resume();
     
     requestAnimationFrame(gameLoop);
@@ -390,6 +414,13 @@ function gameOver() {
 
 // Input Handling
 window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (gameState === 'playing' || gameState === 'paused') {
+            togglePause();
+            return;
+        }
+    }
+
     if (gameState !== 'playing') return;
     
     const char = e.key;
@@ -541,5 +572,21 @@ backBtns.forEach(btn => {
 });
 
 homeBtn.addEventListener('click', () => showScreen('main-menu'));
+
+if (pauseGameBtn) {
+    pauseGameBtn.addEventListener('click', togglePause);
+}
+
+if (resumeBtn) {
+    resumeBtn.addEventListener('click', togglePause);
+}
+
+if (pauseHomeBtn) {
+    pauseHomeBtn.addEventListener('click', () => {
+        gameState = 'start';
+        showScreen('main-menu');
+        playSound('combo_break');
+    });
+}
 
 toggleSoundBtn.addEventListener('click', toggleMute);
