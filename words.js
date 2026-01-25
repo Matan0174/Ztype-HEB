@@ -41,17 +41,24 @@ const WORD_CATEGORIES = {
     ]
 };
 
-function getWordForLevel(level) {
+const shuffleArray = (array) => {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+};
+
+function getLevelWordPool(level) {
     let pool = [];
     if (level <= 2) pool = [...WORD_CATEGORIES.easy];
     else if (level <= 5) pool = [...WORD_CATEGORIES.easy, ...WORD_CATEGORIES.medium];
     else if (level <= 10) pool = [...WORD_CATEGORIES.medium, ...WORD_CATEGORIES.hard];
     else pool = [...WORD_CATEGORIES.medium, ...WORD_CATEGORIES.hard, ...WORD_CATEGORIES.expert];
-    
-    // 5% chance for a boss word on higher levels
-    if (level > 5 && Math.random() < 0.05) {
-        return WORD_CATEGORIES.boss[Math.floor(Math.random() * WORD_CATEGORIES.boss.length)];
-    }
-    
-    return pool[Math.floor(Math.random() * pool.length)];
+
+    return shuffleArray(pool);
+}
+
+function getRandomBossWord() {
+    return WORD_CATEGORIES.boss[Math.floor(Math.random() * WORD_CATEGORIES.boss.length)];
 }
