@@ -1,673 +1,852 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-// Game State / מצב משחק
-let gameState = 'start'; // start, playing, gameover
+// ---- Game Configuration / הגדרות משחק ----
+const GAME_CONFIG = {
+  PLAYER: {
+    COLOR_PRIMARY: "#00f3ff",
+    COLOR_SECONDARY: "#f0f",
+    Y_OFFSET: 50,
+  },
+  ENEMY: {
+    BASE_SPEED: 40, // Pixels per second
+    SPEED_INC_PER_LEVEL: 5,
+    SPAWN_INTERVAL_BASE: 2000, // ms
+    SPAWN_INTERVAL_MIN: 600,
+    RADIUS_BASE: 20,
+    RADIUS_BOSS: 40,
+  },
+  BULLET: {
+    SPEED: 1200, // Pixels per second
+    COLOR: "#00f3ff",
+    TRAIL_LENGTH: 5,
+  },
+  PARTICLE: {
+    GRAVITY: 0,
+    FRICTION: 0.95,
+    LIFE_BASE: 1.0,
+    DECAY_RATE: 2.0, // Units per second
+  },
+  BACKGROUND: {
+    STAR_COUNT: 100,
+    STAR_SPEED: 10,
+  },
+  LEVELS: {
+    MAX: 20,
+  },
+};
+
+// ---- Game State / מצב משחק ----
+let gameState = "start"; // start, playing, gameover, paused, level_complete, level_select
 let score = 0;
-let highScore = parseInt(localStorage.getItem('ztype_he_highscore')) || 0;
+let highScore = parseInt(localStorage.getItem("ztype_he_highscore")) || 0;
 let level = 1;
 let multiplier = 1;
 let maxMultiplier = 1;
 let lastTime = 0;
 let spawnTimer = 0;
-let spawnInterval = 2000;
 let isMuted = false;
 
-// Entities / ישויות
+// ---- Object Pools & Entities / מאגרי אובייקטים וישויות ----
+// Using simple pooling for high-frequency objects to reduce GC
+class Pool {
+  constructor(createFn, resetFn) {
+    this.createFn = createFn;
+    this.resetFn = resetFn;
+    this.pool = [];
+  }
+
+  get(...args) {
+    let obj = this.pool.length > 0 ? this.pool.pop() : this.createFn();
+    this.resetFn(obj, ...args);
+    return obj;
+  }
+
+  release(obj) {
+    this.pool.push(obj);
+  }
+}
+
+// Entities arrays
 let enemies = [];
-let bullets = [];
-let particles = [];
+let bullets = []; // Active bullets
+let particles = []; // Active particles
+let stars = []; // Background stars
+
 let player = { x: 0, y: 0 };
 let targetEnemy = null;
 
-// DOM Elements / אלמנטים ב-DOM
-const uiLayer = document.getElementById('ui-layer');
-const mainMenu = document.getElementById('main-menu');
-const guideScreen = document.getElementById('guide-screen');
-const aboutScreen = document.getElementById('about-screen');
-const levelCompleteScreen = document.getElementById('level-complete-screen');
-const nextLevelBtn = document.getElementById('next-level-btn');
-const completedLevelNumEl = document.getElementById('completed-level-num');
-const levelBonusEl = document.getElementById('level-bonus');
+// DOM Elements
+const uiLayer = document.getElementById("ui-layer");
+const scoreEl = document.getElementById("score-value");
+const finalScoreEl = document.getElementById("final-score");
+const levelEl = document.getElementById("level-value");
+const highScoreEl = document.querySelector("#hud-top .high-score span");
+const comboDisplay = document.getElementById("combo-display");
+const comboValue = document.getElementById("combo-value");
+const toggleSoundBtn = document.getElementById("toggle-sound");
+const newHighScoreEl = document.querySelector(".new-high-score");
+const gameContainer = document.getElementById("game-container");
+const pauseGameBtn = document.getElementById("pause-game-btn");
+const completedLevelNumEl = document.getElementById("completed-level-num");
+const levelBonusEl = document.getElementById("level-bonus");
+const levelsGrid = document.getElementById("levels-grid");
 
-// Restore deleted variables / שחזור משתנים שנמחקו
-const gameOverScreen = document.getElementById('game-over-screen');
-const scoreEl = document.getElementById('score-value');
-const finalScoreEl = document.getElementById('final-score');
-const levelEl = document.getElementById('level-value');
+// Buttons
+const menuStartBtn = document.getElementById("menu-start-btn");
+const menuLevelsBtn = document.getElementById("menu-levels-btn");
+const menuGuideBtn = document.getElementById("menu-guide-btn");
+const menuAboutBtn = document.getElementById("menu-about-btn");
+const restartBtn = document.getElementById("restart-btn");
+const homeBtn = document.getElementById("home-btn");
+const nextLevelBtn = document.getElementById("next-level-btn");
+const backBtns = document.querySelectorAll(".back-btn");
+const resumeBtn = document.getElementById("resume-btn");
+const pauseHomeBtn = document.getElementById("pause-home-btn");
+const retryLevelBtn = document.getElementById("retry-level-btn");
+const levelHomeBtn = document.getElementById("level-home-btn");
+const retryLevelNumEl = document.getElementById("retry-level-num");
 
-// State for Level Progression / מצב להתקדמות בשלבים
+// Level Progression State
 let enemiesToSpawn = 0;
 let enemiesSpawnedCount = 0;
-let levelWordDeck = []; // Deck of unique words for the level / חפיסת מילים ייחודיות לשלב
-const highScoreEl = document.querySelector('#hud-top .high-score span');
-const comboDisplay = document.getElementById('combo-display');
-const comboValue = document.getElementById('combo-value');
-const toggleSoundBtn = document.getElementById('toggle-sound');
-const newHighScoreEl = document.querySelector('.new-high-score');
-const gameContainer = document.getElementById('game-container');
-const pauseGameBtn = document.getElementById('pause-game-btn');
-const pauseScreen = document.getElementById('pause-screen');
-const resumeBtn = document.getElementById('resume-btn');
-const pauseHomeBtn = document.getElementById('pause-home-btn');
+let levelWordDeck = [];
 
-// Buttons / כפתורים
-const menuStartBtn = document.getElementById('menu-start-btn');
-const menuGuideBtn = document.getElementById('menu-guide-btn');
-const menuAboutBtn = document.getElementById('menu-about-btn');
-const restartBtn = document.getElementById('restart-btn');
-const homeBtn = document.getElementById('home-btn');
-const backBtns = document.querySelectorAll('.back-btn');
-
-
-// Audio Context / הקשר שמע
+// ---- Audio Context ----
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = new AudioContext();
 
-// Initialize High Score Display / איתחול תצוגת שיא
 if (highScoreEl) highScoreEl.innerText = highScore;
 
-// ---- Audio Functions / פונקציות שמע ----
+// ---- Audio Functions ----
 function toggleMute() {
-    isMuted = !isMuted;
-    toggleSoundBtn.innerText = isMuted ? "🔇" : "🔊";
-    if (isMuted) {
-        if (audioCtx.state === 'running') audioCtx.suspend();
-    } else {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
+  isMuted = !isMuted;
+  toggleSoundBtn.innerText = isMuted ? "🔇" : "🔊";
+  if (isMuted) {
+    if (audioCtx.state === "running") audioCtx.suspend();
+  } else {
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
 }
 
 function playSound(type) {
-    if (isMuted) return;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (isMuted || !audioCtx) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
 
-    if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
 
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
 
-    const now = audioCtx.currentTime;
-
-    if (type === 'shoot') {
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(400 + (multiplier * 50), now);
-        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
-    } else if (type === 'explosion') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(100, now);
-        osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
-    } else if (type === 'lock') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, now);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
-    } else if (type === 'combo_break') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(200, now);
-        osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.linearRampToValueAtTime(0.0, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
-    }
+  switch (type) {
+    case "shoot":
+      osc.type = "square";
+      osc.frequency.setValueAtTime(400 + multiplier * 50, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+      break;
+    case "explosion":
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(100, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+      break;
+    case "lock":
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+      break;
+    case "combo_break":
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.linearRampToValueAtTime(0.0, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+      break;
+  }
 }
 
-// ---- Game Logic / לוגיקת משחק ----
+// ---- Classes & Game Logic ----
 
-// Resizing / שינוי גודל חלון
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    player.x = canvas.width / 2;
-    player.y = canvas.height - 50;
-}
-window.addEventListener('resize', resize);
-resize();
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  player.x = canvas.width / 2;
+  player.y = canvas.height - GAME_CONFIG.PLAYER.Y_OFFSET;
 
-// Classes / מחלקות
+  // Re-init stars if needed or just let them be
+  if (stars.length === 0) initStars();
+}
+window.addEventListener("resize", resize);
+
+// -- Background Stars --
+class Star {
+  constructor() {
+    this.reset();
+  }
+
+  reset() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.z = Math.random() * 2 + 0.5; // Depth factor
+    this.size = Math.random() * 1.5;
+    this.opacity = Math.random() * 0.5 + 0.3;
+  }
+
+  update(dt) {
+    // Move stars down to simulate forward movement
+    this.y += GAME_CONFIG.BACKGROUND.STAR_SPEED * this.z * dt;
+
+    if (this.y > canvas.height) {
+      this.y = 0;
+      this.x = Math.random() * canvas.width;
+    }
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function initStars() {
+  stars = [];
+  for (let i = 0; i < GAME_CONFIG.BACKGROUND.STAR_COUNT; i++) {
+    stars.push(new Star());
+  }
+}
+
+// -- Level Select Logic --
+function initLevelSelect() {
+    levelsGrid.innerHTML = '';
+    for (let i = 1; i <= GAME_CONFIG.LEVELS.MAX; i++) {
+        const btn = document.createElement('div');
+        btn.classList.add('level-btn');
+        btn.innerText = i;
+        
+        // All levels unlocked for now
+        btn.onclick = () => {
+            level = i;
+            startGame(true); // true = skip reset level to 1
+        };
+        
+        levelsGrid.appendChild(btn);
+    }
+}
+
+// -- Enemy --
 class Enemy {
-    constructor(word) {
-        this.fullWord = word;
-        this.remaining = word;
-        this.matched = "";
-        this.x = Math.random() * (canvas.width - 200) + 100;
-        this.y = -50;
-        this.speed = (Math.random() * 0.3 + 0.3) + (level * 0.05);
-        this.radius = 20;
-        this.isBoss = word.length > 10;
-        if (this.isBoss) {
-            this.radius = 40;
-            this.speed *= 0.5;
-        }
+  constructor(word) {
+    this.reset(word);
+  }
 
-        // Random visual properties / תכונות ויזואליות רנדומליות
-        this.shape = ['circle', 'hexagon', 'triangle', 'square'][Math.floor(Math.random() * 4)];
-        this.hue = Math.floor(Math.random() * 60) + 300; // Pinks and Purples / גוונים של ורוד וסגול
-        this.angle = 0;
-        this.spinSpeed = (Math.random() - 0.5) * 0.05;
+  reset(word) {
+    this.fullWord = word;
+    this.remaining = word;
+    this.matched = "";
+    this.x = Math.random() * (canvas.width - 200) + 100;
+    this.y = -50;
+    // Logic: Base speed + Level modifier + Random Variance
+    const baseSpeed =
+      GAME_CONFIG.ENEMY.BASE_SPEED +
+      level * GAME_CONFIG.ENEMY.SPEED_INC_PER_LEVEL;
+    // Add 20% variance so enemies don't move in a perfect line
+    this.speed = baseSpeed * (0.8 + Math.random() * 0.4);
+
+    this.isBoss = word.length > 10;
+    this.radius = this.isBoss
+      ? GAME_CONFIG.ENEMY.RADIUS_BOSS
+      : GAME_CONFIG.ENEMY.RADIUS_BASE;
+    if (this.isBoss) this.speed *= 0.6; // Bosses are slower
+
+    // Visuals
+    this.shape = ["circle", "hexagon", "triangle", "square"][
+      Math.floor(Math.random() * 4)
+    ];
+    this.hue = Math.floor(Math.random() * 60) + 300; // 300-360 range
+    this.angle = 0;
+    this.spinSpeed = (Math.random() - 0.5) * 2; // Radians per second
+
+    // Spawn entrance animation
+    this.targetY = this.y;
+  }
+
+  update(dt) {
+    // Move towards player
+    const dx = player.x - this.x;
+    const dy = player.y - this.y;
+    this.angle += this.spinSpeed * dt;
+
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > 0) {
+      this.x += (dx / dist) * this.speed * dt;
+      this.y += (dy / dist) * this.speed * dt;
+    }
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+
+    const isActive = targetEnemy === this;
+    const baseColor = isActive
+      ? GAME_CONFIG.PLAYER.COLOR_SECONDARY
+      : `hsl(${this.hue}, 70%, 60%)`;
+
+    ctx.beginPath();
+    // Shape drawing logic
+    if (this.shape === "hexagon") {
+      for (let i = 0; i < 6; i++)
+        ctx.lineTo(
+          this.radius * Math.cos((i * Math.PI) / 3),
+          this.radius * Math.sin((i * Math.PI) / 3),
+        );
+    } else if (this.shape === "triangle") {
+      for (let i = 0; i < 3; i++)
+        ctx.lineTo(
+          this.radius * 1.2 * Math.cos((i * 2 * Math.PI) / 3 - Math.PI / 2),
+          this.radius * 1.2 * Math.sin((i * 2 * Math.PI) / 3 - Math.PI / 2),
+        );
+    } else if (this.shape === "square") {
+      ctx.rect(
+        -this.radius * 0.8,
+        -this.radius * 0.8,
+        this.radius * 1.6,
+        this.radius * 1.6,
+      );
+    } else {
+      ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+    }
+    ctx.closePath();
+
+    // Fill & Stroke
+    ctx.fillStyle = this.isBoss
+      ? GAME_CONFIG.PLAYER.COLOR_SECONDARY
+      : baseColor;
+    // If active, add glow to shape
+    if (isActive) {
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = GAME_CONFIG.PLAYER.COLOR_PRIMARY;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = isActive
+      ? GAME_CONFIG.PLAYER.COLOR_PRIMARY
+      : "rgba(255,255,255,0.3)";
+    ctx.lineWidth = isActive ? 3 : 1;
+    ctx.stroke();
+
+    ctx.restore();
+
+    // Text Drawing
+    ctx.font = (this.isBoss ? "bold 30px" : "20px") + " Rubik";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    if (isActive) {
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = GAME_CONFIG.PLAYER.COLOR_PRIMARY;
     }
 
-    update(dt) {
-        // Move towards player / תנועה לכיוון השחקן
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
+    ctx.fillStyle = isActive ? GAME_CONFIG.PLAYER.COLOR_PRIMARY : "#ffffff";
+    const textYOffset = this.radius + 25;
 
-        // Update rotation / עדכון סיבוב
-        this.angle += this.spinSpeed;
+    // Draw remaining text
+    ctx.fillText(this.remaining, this.x, this.y + textYOffset);
 
-        const dist = Math.sqrt(dx * dx + dy * dy);
+    // Optional: Draw matched part in different color or faint
+    // ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    // ctx.fillText(this.matched, this.x, this.y + textYOffset - 20); // Above?
 
-        if (dist > 0) {
-            this.x += (dx / dist) * this.speed;
-            this.y += (dy / dist) * this.speed;
-        }
-    }
-
-    draw(ctx) {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-
-        // Base Color / צבע בסיס
-        const isActive = targetEnemy === this;
-        const baseColor = isActive ? '#ff0055' : `hsl(${this.hue}, 70%, 60%)`;
-
-        // Draw Shape / ציור הצורה
-        ctx.beginPath();
-        if (this.shape === 'hexagon') {
-            for (let i = 0; i < 6; i++) {
-                ctx.lineTo(this.radius * Math.cos(i * Math.PI / 3), this.radius * Math.sin(i * Math.PI / 3));
-            }
-        } else if (this.shape === 'triangle') {
-            for (let i = 0; i < 3; i++) {
-                ctx.lineTo(this.radius * 1.2 * Math.cos(i * 2 * Math.PI / 3 - Math.PI / 2), this.radius * 1.2 * Math.sin(i * 2 * Math.PI / 3 - Math.PI / 2));
-            }
-        } else if (this.shape === 'square') {
-            ctx.rect(-this.radius * 0.8, -this.radius * 0.8, this.radius * 1.6, this.radius * 1.6);
-        } else {
-            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-        }
-        ctx.closePath();
-
-        ctx.fillStyle = this.isBoss ? '#ffe600' : baseColor;
-        ctx.fill();
-
-        // Active Outline effect / אפקט מסגרת לפעיל
-        if (isActive) {
-            ctx.strokeStyle = '#00f3ff';
-            ctx.lineWidth = 3 + (Math.sin(Date.now() / 100) * 1);
-            ctx.stroke();
-        } else {
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        }
-
-        ctx.restore();
-
-        // Text Drawing (Separate to not rotate with shape) / ציור טקסט (בנפרד כדי שלא יסתובב)
-        ctx.font = (this.isBoss ? 'bold 30px' : '20px') + ' Rubik';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        // Text Glow / זוהר לטקסט
-        if (isActive) {
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = "#00f3ff";
-        } else {
-            ctx.shadowBlur = 0;
-        }
-
-        ctx.fillStyle = isActive ? '#00f3ff' : '#ffffff';
-        const textYOffset = this.radius + 25;
-        ctx.fillText(this.remaining, this.x, this.y + textYOffset);
-
-        ctx.shadowBlur = 0; // Reset
-    }
+    ctx.shadowBlur = 0;
+  }
 }
 
-class Bullet {
-    constructor(startX, startY, target) {
-        this.x = startX;
-        this.y = startY;
-        this.target = target;
-        this.speed = 20;
-        this.dead = false;
-        this.trail = [];
+// -- Bullet (Pooled) --
+const bulletPool = new Pool(
+  () => ({ x: 0, y: 0, tx: 0, ty: 0, dead: true, trail: [] }),
+  (b, x, y, target) => {
+    b.x = x;
+    b.y = y;
+    b.target = target;
+    b.dead = false;
+    b.trail = [];
+  },
+);
+
+function updateBullets(dt) {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+
+    if (!b.target || enemies.indexOf(b.target) === -1) {
+      b.dead = true;
+    } else {
+      // Update trail
+      b.trail.push({ x: b.x, y: b.y });
+      if (b.trail.length > GAME_CONFIG.BULLET.TRAIL_LENGTH) b.trail.shift();
+
+      // Move
+      const dx = b.target.x - b.x;
+      const dy = b.target.y - b.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const moveDist = GAME_CONFIG.BULLET.SPEED * dt;
+
+      if (dist < moveDist) {
+        b.x = b.target.x;
+        b.y = b.target.y;
+        b.dead = true; // Hit! logic is handled immediately in processHit, bullet visuals catch up
+      } else {
+        b.x += (dx / dist) * moveDist;
+        b.y += (dy / dist) * moveDist;
+      }
     }
 
-    update() {
-        if (!this.target || enemies.indexOf(this.target) === -1) {
-            this.dead = true;
-            return;
-        }
-
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > 5) this.trail.shift();
-
-        const dx = this.target.x - this.x;
-        const dy = this.target.y - this.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < this.speed) {
-            this.x = this.target.x;
-            this.y = this.target.y;
-            this.dead = true;
-        } else {
-            this.x += (dx / dist) * this.speed;
-            this.y += (dy / dist) * this.speed;
-        }
+    if (b.dead) {
+      bulletPool.release(b);
+      bullets.splice(i, 1);
     }
-
-    draw(ctx) {
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(0, 243, 255, 0.5)';
-        ctx.lineWidth = 2;
-        if (this.trail.length > 0) {
-            ctx.moveTo(this.trail[0].x, this.trail[0].y);
-            for (let p of this.trail) ctx.lineTo(p.x, p.y);
-        }
-        ctx.lineTo(this.x, this.y);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.fillStyle = '#00f3ff';
-        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-    }
+  }
 }
 
-class Particle {
-    constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
-        this.color = color;
-        const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 5 + 2;
-        this.vx = Math.cos(angle) * speed;
-        this.vy = Math.sin(angle) * speed;
-        this.life = 1.0;
-        this.decay = Math.random() * 0.05 + 0.02;
+function drawBullets(ctx) {
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  for (const b of bullets) {
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(0, 243, 255, 0.5)`;
+    if (b.trail.length > 0) {
+      ctx.moveTo(b.trail[0].x, b.trail[0].y);
+      for (let p of b.trail) ctx.lineTo(p.x, p.y);
     }
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
 
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.life -= this.decay;
-    }
-
-    draw(ctx) {
-        ctx.globalAlpha = this.life;
-        ctx.fillStyle = this.color;
-
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y - 3);
-        ctx.lineTo(this.x + 3, this.y);
-        ctx.lineTo(this.x, this.y + 3);
-        ctx.lineTo(this.x - 3, this.y);
-        ctx.fill();
-
-        ctx.globalAlpha = 1.0;
-    }
+    ctx.fillStyle = GAME_CONFIG.BULLET.COLOR;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
-function createExplosion(x, y, count = 10, color = '#ff0055') {
-    for (let i = 0; i < count; i++) {
-        particles.push(new Particle(x, y, color));
-    }
-    gameContainer.classList.add('shake');
-    setTimeout(() => gameContainer.classList.remove('shake'), 500);
+// -- Particle (Pooled) --
+const particlePool = new Pool(
+  () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, color: "#fff" }),
+  (p, x, y, color) => {
+    p.x = x;
+    p.y = y;
+    p.color = color;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 150 + 50; // Pixels per sec
+    p.vx = Math.cos(angle) * speed;
+    p.vy = Math.sin(angle) * speed;
+    p.life = GAME_CONFIG.PARTICLE.LIFE_BASE;
+  },
+);
+
+function createExplosion(x, y, count, color) {
+  for (let i = 0; i < count; i++) {
+    const p = particlePool.get(x, y, color);
+    particles.push(p);
+  }
+  // Shake effect
+  gameContainer.classList.remove("shake");
+  void gameContainer.offsetWidth;
+  gameContainer.classList.add("shake");
 }
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= GAME_CONFIG.PARTICLE.DECAY_RATE * dt;
+
+    if (p.life <= 0) {
+      particlePool.release(p);
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function drawParticles(ctx) {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.rect(p.x, p.y, 4, 4);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1.0;
+}
+
+// ---- Game Flow Control ----
 
 function updateMultiplier(increase) {
-    if (increase) {
-        multiplier++;
-        if (multiplier > maxMultiplier) maxMultiplier = multiplier;
-    } else {
-        multiplier = 1;
-        playSound('combo_break');
-    }
+  if (increase) {
+    multiplier++;
+    if (multiplier > maxMultiplier) maxMultiplier = multiplier;
+  } else {
+    multiplier = 1;
+    playSound("combo_break");
+  }
 
-    comboValue.innerText = multiplier;
+  comboValue.innerText = multiplier;
 
-    if (multiplier > 1) {
-        comboDisplay.classList.remove('hidden');
-        comboDisplay.classList.remove('pulse');
-        void comboDisplay.offsetWidth;
-        comboDisplay.classList.add('pulse');
-    } else {
-        comboDisplay.classList.add('hidden');
-    }
+  if (multiplier > 1) {
+    comboDisplay.classList.remove("hidden");
+    comboDisplay.classList.remove("pulse");
+    void comboDisplay.offsetWidth;
+    comboDisplay.classList.add("pulse");
+  } else {
+    comboDisplay.classList.add("hidden");
+  }
 }
 
 function spawnEnemy() {
-    if (enemiesSpawnedCount >= enemiesToSpawn) return; // Stop spawning if level limit reached / הפסקת יצירת אויבים אם הגענו למכסת השלב
+  if (enemiesSpawnedCount >= enemiesToSpawn) return;
 
-    let word = "שגיאה";
+  let word = "שגיאה";
 
-    // Boss logic / לוגיקת בוס
-    if (level > 5 && Math.random() < 0.05 && typeof getRandomBossWord === 'function') {
-        word = getRandomBossWord();
-    } else {
-        // Standard word from deck / מילה רגילה מהחפיסה
-        if (levelWordDeck.length === 0) {
-            // Refill if empty (fallback) / מילוי מחדש אם נגמר (גיבוי)
-            if (typeof getLevelWordPool === 'function') {
-                levelWordDeck = getLevelWordPool(level);
-            }
-        }
-
-        if (levelWordDeck.length > 0) {
-            word = levelWordDeck.pop();
-        }
+  // Random Boss Logic
+  if (
+    level > 5 &&
+    Math.random() < 0.05 &&
+    typeof getRandomBossWord === "function"
+  ) {
+    word = getRandomBossWord();
+  } else {
+    if (levelWordDeck.length === 0 && typeof getLevelWordPool === "function") {
+      levelWordDeck = getLevelWordPool(level);
     }
+    if (levelWordDeck.length > 0) word = levelWordDeck.pop();
+  }
 
-    enemies.push(new Enemy(word));
-    enemiesSpawnedCount++;
+  enemies.push(new Enemy(word));
+  enemiesSpawnedCount++;
 }
 
 function startLevel(lvl) {
-    level = lvl;
-    levelEl.innerText = level;
+  level = lvl;
+  levelEl.innerText = level;
 
-    // Formula: 10 enemies + 5 per level / נוסחה: 10 אויבים + 5 לכל שלב
-    enemiesToSpawn = 10 + (level * 5);
-    enemiesSpawnedCount = 0;
+  // Difficulty curve:
+  enemiesToSpawn = 10 + level * 5;
+  enemiesSpawnedCount = 0;
 
-    enemies = []; // Clear existing / ניקוי קיימים
-    bullets = [];
-    targetEnemy = null;
-    spawnTimer = 0;
+  enemies = [];
+  // Clear particles/bullets for clean start? Optional.
+  // bullets = [];
+  targetEnemy = null;
+  spawnTimer = 0;
 
-    // Initialize word deck / איתחול חפיסת המילים
-    if (typeof getLevelWordPool === 'function') {
-        levelWordDeck = getLevelWordPool(level);
-    }
+  if (typeof getLevelWordPool === "function") {
+    levelWordDeck = getLevelWordPool(level);
+  }
 }
 
 function levelComplete() {
-    gameState = 'level_complete';
-    const bonus = level * 1000;
-    score += bonus;
-    scoreEl.innerText = score;
+  gameState = "level_complete";
+  const bonus = level * 1000;
+  score += bonus;
+  scoreEl.innerText = score;
 
-    completedLevelNumEl.innerText = level;
-    levelBonusEl.innerText = bonus;
+  completedLevelNumEl.innerText = level;
+  levelBonusEl.innerText = bonus;
 
-    showScreen('level-complete-screen');
-    playSound('lock'); // Victory sound / צליל ניצחון
+  showScreen("level-complete-screen");
+  playSound("lock");
 }
 
 function nextLevel() {
-    startLevel(level + 1);
-    gameState = 'playing'; // Resume / המשך משחק
-
-    updateMultiplier(false); // Reset combo or keep it? Let's reset for fairness/pace
-
-    // Hide screens
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    requestAnimationFrame(gameLoop);
+  startLevel(level + 1);
+  gameState = "playing";
+  updateMultiplier(false);
+  showScreen("none");
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
 }
 
-// ---- Scene Management / ניהול סצנות ----
-
 function showScreen(screenId) {
-    // Hide all screens / הסתרת כל המסכים
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    // Show requested / הצגת המסך המבוקש
-    document.getElementById(screenId).classList.add('active');
+  document
+    .querySelectorAll(".screen")
+    .forEach((s) => s.classList.remove("active"));
+  if (screenId !== "none") {
+    document.getElementById(screenId).classList.add("active");
+  }
 
-    // Manage Pause Button Visibility / ניהול נראות כפתור ההשהיה
-    if (screenId === 'main-menu' || screenId === 'game-over-screen') {
-        if (pauseGameBtn) pauseGameBtn.classList.add('hidden');
-    }
+  if (screenId === "main-menu" || screenId === "game-over-screen") {
+    if (pauseGameBtn) pauseGameBtn.classList.add("hidden");
+  }
 }
 
 function togglePause() {
-    if (gameState === 'playing') {
-        gameState = 'paused';
-        showScreen('pause-screen');
-        if (audioCtx.state === 'running') audioCtx.suspend();
-    } else if (gameState === 'paused') {
-        gameState = 'playing';
-        showScreen('none'); // Hide all screens / הסתרת כל המסכים
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
-    }
+  if (gameState === "playing") {
+    gameState = "paused";
+    showScreen("pause-screen");
+    if (audioCtx.state === "running") audioCtx.suspend();
+  } else if (gameState === "paused") {
+    gameState = "playing";
+    showScreen("none");
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  }
 }
 
-function startGame() {
-    gameState = 'playing';
-    score = 0;
-    level = 1;
-    startLevel(level); // Use helper to init level stats / שימוש בפונקציית עזר לאתחול נתוני שלב
-    multiplier = 1;
-    updateMultiplier(false);
+function startGame(skipReset = false) {
+  gameState = "playing";
+  score = 0;
+  if (!skipReset) level = 1;
+  startLevel(level);
+  multiplier = 1;
+  updateMultiplier(false);
 
-    scoreEl.innerText = score;
-    levelEl.innerText = level;
+  scoreEl.innerText = score;
+  levelEl.innerText = level;
 
-    // Hide all screens
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  showScreen("none");
+  newHighScoreEl.classList.add("hidden");
+  if (pauseGameBtn) pauseGameBtn.classList.remove("hidden");
 
-    newHighScoreEl.classList.add('hidden');
-    if (pauseGameBtn) pauseGameBtn.classList.remove('hidden');
+  if (audioCtx.state === "suspended") audioCtx.resume();
 
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+  // Init effects
+  initStars();
+  resize();
 
-    requestAnimationFrame(gameLoop);
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
 }
 
 function gameOver() {
-    gameState = 'gameover';
-    finalScoreEl.innerText = score;
-
-    if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('ztype_he_highscore', highScore);
-        highScoreEl.innerText = highScore;
-        newHighScoreEl.classList.remove('hidden');
-    }
-
-    showScreen('game-over-screen');
+  gameState = "gameover";
+  finalScoreEl.innerText = score;
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("ztype_he_highscore", highScore);
+    highScoreEl.innerText = highScore;
+    newHighScoreEl.classList.remove("hidden");
+  }
+  
+  if (retryLevelNumEl) retryLevelNumEl.innerText = level;
+  
+  showScreen("game-over-screen");
 }
 
-// Input Handling / טיפול בקלט
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        if (gameState === 'playing' || gameState === 'paused') {
-            togglePause();
-            return;
-        }
+// ---- Input Handling ----
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    if (gameState === "playing" || gameState === "paused") {
+      togglePause();
+      return;
     }
+  }
 
-    if (gameState !== 'playing') return;
+  if (gameState !== "playing") return;
 
-    const char = e.key;
-    if (char.length !== 1) return;
+  const char = e.key;
+  if (char.length !== 1) return;
 
-    let hit = false;
+  let hit = false;
+  let hitEnemy = null;
 
-    if (!targetEnemy) {
-        const candidates = enemies.filter(enemy => enemy.remaining.startsWith(char));
-
-        if (candidates.length > 0) {
-            candidates.sort((a, b) => b.y - a.y);
-            targetEnemy = candidates[0];
-            processHit(targetEnemy);
-            playSound('lock');
-            hit = true;
-        }
-    } else {
-        if (targetEnemy.remaining.startsWith(char)) {
-            processHit(targetEnemy);
-            hit = true;
-        }
+  if (!targetEnemy) {
+    // Find optimal target (closest to player) that starts with char
+    const candidates = enemies.filter((enemy) =>
+      enemy.remaining.startsWith(char),
+    );
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.y - a.y); // Higher Y = Closer to bottom (player)
+      targetEnemy = candidates[0];
+      hitEnemy = targetEnemy;
+      hit = true;
     }
-
-    if (!hit) {
-        if (multiplier > 1) updateMultiplier(false);
+  } else {
+    if (targetEnemy.remaining.startsWith(char)) {
+      hitEnemy = targetEnemy;
+      hit = true;
     }
+  }
+
+  if (hit && hitEnemy) {
+    processHit(hitEnemy);
+  } else {
+    if (multiplier > 1) updateMultiplier(false);
+  }
 });
 
 function processHit(enemy) {
-    bullets.push(new Bullet(player.x, player.y, enemy));
-    playSound('shoot');
+  // Visual bullet
+  const b = bulletPool.get(player.x, player.y, enemy);
+  bullets.push(b);
 
-    enemy.matched += enemy.remaining[0];
-    enemy.remaining = enemy.remaining.substring(1);
+  playSound("shoot");
 
-    if (enemy.remaining.length === 0) {
-        score += enemy.fullWord.length * 10 * multiplier;
-        scoreEl.innerText = score;
+  // Logic
+  enemy.matched += enemy.remaining[0];
+  enemy.remaining = enemy.remaining.substring(1);
 
-        updateMultiplier(true);
+  if (enemy.remaining.length === 0) {
+    score += enemy.fullWord.length * 10 * multiplier;
+    scoreEl.innerText = score;
 
-        // Level logic handled by fixed enemy count now
-        /*
-        let newLevel = 1 + Math.floor(score / 1500);
-        if (newLevel > level) {
-            level = newLevel;
-            levelEl.innerText = level;
-        }
-        */
+    updateMultiplier(true);
+    createExplosion(
+      enemy.x,
+      enemy.y,
+      enemy.isBoss ? 50 : 20,
+      GAME_CONFIG.PLAYER.COLOR_SECONDARY,
+    );
+    playSound("explosion");
 
-        createExplosion(enemy.x, enemy.y, enemy.isBoss ? 50 : 20, '#ff0055');
-        playSound('explosion');
+    const index = enemies.indexOf(enemy);
+    if (index > -1) enemies.splice(index, 1);
+    targetEnemy = null;
 
-        const index = enemies.indexOf(enemy);
-        if (index > -1) {
-            enemies.splice(index, 1);
-        }
-        targetEnemy = null;
-
-        // Check Level Complete / בדיקת סיום שלב
-        if (enemiesSpawnedCount >= enemiesToSpawn && enemies.length === 0) {
-            setTimeout(levelComplete, 500); // Small delay for effect / השהייה קטנה לאפקט
-        }
+    if (enemiesSpawnedCount >= enemiesToSpawn && enemies.length === 0) {
+      setTimeout(levelComplete, 500);
     }
+  }
 }
 
-// Main Loop / לולאה ראשית
+// ---- Main Game Loop ----
 function gameLoop(timestamp) {
-    if (gameState !== 'playing') return;
+  if (gameState !== "playing") return;
 
-    const dt = timestamp - lastTime;
-    lastTime = timestamp;
+  // Delta Time calculation (in seconds)
+  const dtMs = timestamp - lastTime;
+  const dt = Math.min(dtMs / 1000, 0.1); // Cap dt at 0.1s to prevent huge jumps on lag
+  lastTime = timestamp;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    spawnTimer += 16;
-    const currentInterval = Math.max(800, 2000 - (level * 100));
+  // 1. Draw Background
+  stars.forEach((s) => {
+    s.update(dt);
+    s.draw(ctx);
+  });
 
-    if (spawnTimer > currentInterval) {
-        spawnEnemy();
-        spawnTimer = 0;
-    }
+  // 2. Spawning
+  spawnTimer += dtMs;
+  // Dynamic spawn rate based on level
+  const currentSpawnInterval = Math.max(
+    GAME_CONFIG.ENEMY.SPAWN_INTERVAL_MIN,
+    GAME_CONFIG.ENEMY.SPAWN_INTERVAL_BASE - level * 100,
+  );
+  if (spawnTimer > currentSpawnInterval) {
+    spawnEnemy();
+    spawnTimer = 0;
+  }
 
-    // Draw Player / ציור שחקן
-    ctx.fillStyle = '#00f3ff';
+  // 3. Player
+  // Player is static but we redraw
+  ctx.fillStyle = GAME_CONFIG.PLAYER.COLOR_PRIMARY;
+  ctx.beginPath();
+  // Simple Ship Shape
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(player.x - 20, player.y + 40);
+  ctx.lineTo(player.x, player.y + 30); // Engine notch
+  ctx.lineTo(player.x + 20, player.y + 40);
+  ctx.closePath();
+  ctx.fill();
+  // Engine Glow
+  ctx.fillStyle = GAME_CONFIG.PLAYER.COLOR_SECONDARY;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y + 35, 5 + Math.random() * 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Beam to target
+  if (targetEnemy) {
     ctx.beginPath();
+    ctx.strokeStyle = "rgba(0, 243, 255, 0.15)";
+    ctx.lineWidth = 2;
     ctx.moveTo(player.x, player.y);
-    ctx.lineTo(player.x - 20, player.y + 40);
-    ctx.lineTo(player.x + 20, player.y + 40);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#f0f';
-    ctx.beginPath();
-    ctx.arc(player.x, player.y + 35, 5 + Math.random() * 5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.lineTo(targetEnemy.x, targetEnemy.y);
+    ctx.stroke();
+  }
 
-    if (targetEnemy) {
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(0, 243, 255, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.moveTo(player.x, player.y);
-        ctx.lineTo(targetEnemy.x, targetEnemy.y);
-        ctx.stroke();
+  // 4. Update & Draw Enemies
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    e.update(dt);
+    e.draw(ctx);
+
+    // Collision Check
+    const dist = Math.hypot(player.x - e.x, player.y - e.y);
+    if (dist < e.radius + 20) {
+      playSound("explosion");
+      createExplosion(player.x, player.y, 100, "#ff0000");
+      gameOver();
     }
+  }
 
-    for (let i = enemies.length - 1; i >= 0; i--) {
-        const e = enemies[i];
-        e.update();
-        e.draw(ctx);
+  // 5. Update & Draw Bullets / Particles
+  updateBullets(dt);
+  drawBullets(ctx);
+  updateParticles(dt);
+  drawParticles(ctx);
 
-        // Check collision with player (distance based) / בדיקת התנגשות עם שחקן
-        const dx = player.x - e.x;
-        const dy = player.y - e.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < e.radius + 20) { // Player radius approx 20
-            playSound('explosion');
-            createExplosion(player.x, player.y, 50, '#ff0000');
-            gameOver();
-        }
-    }
-
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        const b = bullets[i];
-        b.update();
-        b.draw(ctx);
-        if (b.dead) bullets.splice(i, 1);
-    }
-
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.update();
-        p.draw(ctx);
-        if (p.life <= 0) particles.splice(i, 1);
-    }
-
-    requestAnimationFrame(gameLoop);
+  requestAnimationFrame(gameLoop);
 }
 
-// Event Listeners / מאזיני אירועים
-menuStartBtn.addEventListener('click', startGame);
-restartBtn.addEventListener('click', startGame);
-nextLevelBtn.addEventListener('click', nextLevel);
-
-menuGuideBtn.addEventListener('click', () => showScreen('guide-screen'));
-menuAboutBtn.addEventListener('click', () => showScreen('about-screen'));
-
-// Handle Back Buttons / טיפול בכפתורי חזרה
-backBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        showScreen('main-menu');
-    });
+// ---- Event Listeners Initialization ----
+menuStartBtn.addEventListener("click", () => startGame(false));
+menuLevelsBtn.addEventListener('click', () => {
+    initLevelSelect();
+    showScreen('level-select-screen');
 });
-
-homeBtn.addEventListener('click', () => showScreen('main-menu'));
-
-if (pauseGameBtn) {
-    pauseGameBtn.addEventListener('click', togglePause);
-}
-
-if (resumeBtn) {
-    resumeBtn.addEventListener('click', togglePause);
-}
+restartBtn.addEventListener("click", () => startGame(false));
+nextLevelBtn.addEventListener("click", nextLevel);
+menuGuideBtn.addEventListener("click", () => showScreen("guide-screen"));
+menuAboutBtn.addEventListener("click", () => showScreen("about-screen"));
+backBtns.forEach((btn) =>
+  btn.addEventListener("click", () => showScreen("main-menu")),
+);
+homeBtn.addEventListener("click", () => showScreen("main-menu"));
+if (pauseGameBtn) pauseGameBtn.addEventListener("click", togglePause);
+if (resumeBtn) resumeBtn.addEventListener("click", togglePause);
+toggleSoundBtn.addEventListener("click", toggleMute);
 
 if (pauseHomeBtn) {
-    pauseHomeBtn.addEventListener('click', () => {
-        gameState = 'start';
-        showScreen('main-menu');
-        playSound('combo_break');
+  pauseHomeBtn.addEventListener("click", () => {
+    gameState = "start";
+    showScreen("main-menu");
+    playSound("combo_break");
+  });
+}
+
+if (retryLevelBtn) {
+    retryLevelBtn.addEventListener("click", () => {
+        startGame(true); // Retry current level
     });
 }
 
-toggleSoundBtn.addEventListener('click', toggleMute);
+if (levelHomeBtn) {
+    levelHomeBtn.addEventListener("click", () => {
+        gameState = "start";
+        showScreen("main-menu"); 
+    });
+}
+
+// Initial resize
+resize();
+initStars();

@@ -347,3 +347,61 @@ h1.glitch-title {
   right: 0;
   font-weight: bold;
 }
+
+/* Level Select Grid */
+.levels-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+    max-width: 800px;
+    width: 90%;
+    margin-bottom: 30px;
+    padding: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.level-btn {
+    background: rgba(0, 243, 255, 0.1);
+    border: 1px solid var(--primary-neon);
+    color: var(--text-color);
+    padding: 15px 0;
+    font-size: 1.2rem;
+    font-family: var(--font-main);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 5px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.level-btn:hover {
+    background: var(--primary-neon);
+    color: var(--bg-color);
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+.level-btn.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #555;
+    filter: grayscale(1);
+    pointer-events: none;
+}
+
+/* Scrollbar for grid */
+.levels-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.levels-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.levels-grid::-webkit-scrollbar-thumb {
+    background: var(--primary-neon);
+    border-radius: 4px;
+}
