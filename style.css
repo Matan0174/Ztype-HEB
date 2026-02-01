@@ -250,11 +250,13 @@ h1.glitch-title {
   text-align: center;
 }
 
-.neon-btn:hover {
+.neon-btn:hover,
+.neon-btn:focus {
   background: var(--primary-neon);
   color: var(--bg-color);
   box-shadow: 0 0 30px rgba(0, 243, 255, 0.6);
   transform: scale(1.05);
+  outline: none;
 }
 
 .neon-btn.secondary {
@@ -265,7 +267,8 @@ h1.glitch-title {
   padding: 12px 40px;
 }
 
-.neon-btn.secondary:hover {
+.neon-btn.secondary:hover,
+.neon-btn.secondary:focus {
   border-color: var(--text-color);
   color: var(--text-color);
   background: rgba(255, 255, 255, 0.1);
@@ -378,11 +381,13 @@ h1.glitch-title {
   overflow: hidden;
 }
 
-.level-btn:hover {
+.level-btn:hover,
+.level-btn:focus {
   background: var(--primary-neon);
   color: var(--bg-color);
   box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
   transform: translateY(-2px);
+  outline: none;
 }
 
 .level-btn.locked {

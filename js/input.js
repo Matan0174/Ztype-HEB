@@ -38,7 +38,53 @@ export function handleKeydown(e, { togglePause, nextLevel, startGame, showScreen
     return;
   }
 
+  // Navigation Logic
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      const activeScreen = document.querySelector(".screen.active");
+      if (!activeScreen) return;
+
+      // Select focusable buttons in current screen
+      const buttons = Array.from(activeScreen.querySelectorAll("button:not(.hidden), .level-btn:not(.hidden)"));
+      if (buttons.length === 0) return;
+
+      const currentIndex = buttons.indexOf(document.activeElement);
+      let nextIndex = 0;
+
+      if (e.key === "ArrowUp") {
+           e.preventDefault();
+           if (currentIndex === -1) {
+               nextIndex = buttons.length - 1;
+           } else {
+               nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+           }
+      } else if (e.key === "ArrowDown") {
+           e.preventDefault();
+           if (currentIndex === -1) {
+               nextIndex = 0;
+           } else {
+               nextIndex = (currentIndex + 1) % buttons.length;
+           }
+      }
+      
+      buttons[nextIndex].focus();
+      return;
+  }
+
   if (e.key === "Enter") {
+      // If a button is focused, let strict click handle it or do it manually if needed.
+      // Usually Enter triggering click on button is native behavior.
+      const activeElement = document.activeElement;
+      if (activeElement && 
+         (activeElement.tagName === "BUTTON" || activeElement.classList.contains("level-btn")) &&
+         document.querySelector(".screen.active").contains(activeElement)) {
+          // It will click automatically or we can force it.
+          // Let's force it to be sure, but sometimes native does it too triggers duplicate.
+          // Native Enter on Button fires Click. We should probably just return.
+          // But we need to ensure we don't return false or preventDefault elsewhere.
+          return; 
+      }
+
+      // If nothing focused, use shortcuts as fallbacks
       if (state.mode === "level_complete") {
           nextLevel();
           return;
