@@ -203,7 +203,13 @@ function gameLoop(timestamp) {
 }
 
 // Input Listener
-window.addEventListener("keydown", (e) => handleKeydown(e, { togglePause }));
+// Input Listener
+window.addEventListener("keydown", (e) => handleKeydown(e, { 
+    togglePause, 
+    nextLevel, 
+    startGame, 
+    showScreen 
+}));
 
 // Bind UI
 bindUIEvents({ startGame, nextLevel, togglePause, toggleMute });
