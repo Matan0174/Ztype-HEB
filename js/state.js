@@ -59,3 +59,7 @@ export function resetEntities() {
     // bullets.length = 0; 
     state.targetEnemy = null;
 }
+
+export function setTargetEnemy(enemy) {
+    state.targetEnemy = enemy;
+}
