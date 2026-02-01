@@ -49,8 +49,16 @@ export function bindUIEvents({ startGame, nextLevel, togglePause, toggleMute }) 
     document.getElementById("next-level-btn").onclick = nextLevel;
     document.getElementById("resume-btn").onclick = togglePause;
     document.getElementById("pause-home-btn").onclick = () => showScreen("main-menu");
-    document.getElementById("retry-level-btn").onclick = () => startGame(); 
+    // Pass true to prompt skipping level reset (i.e. retry current level)
+    document.getElementById("retry-level-btn").onclick = () => startGame(true); 
     document.getElementById("level-home-btn").onclick = () => showScreen("main-menu");
+    
+    // Bind pause button explicitly if it exists
+    const pauseBtn = document.getElementById("pause-game-btn");
+    if (pauseBtn) {
+        pauseBtn.onclick = togglePause;
+    }
+
     document.getElementById("toggle-sound").onclick = () => {
         const isMuted = toggleMute();
         document.getElementById("toggle-sound").innerText = isMuted ? "🔇" : "🔊";
@@ -58,6 +66,7 @@ export function bindUIEvents({ startGame, nextLevel, togglePause, toggleMute }) 
 
     document.querySelectorAll(".back-btn").forEach((btn) => {
         btn.onclick = () => {
+             // For guide/about screens, just go back to main menu
             showScreen("main-menu"); 
         };
     });
