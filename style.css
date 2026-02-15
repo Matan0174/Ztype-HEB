@@ -179,7 +179,9 @@ h1.glitch-title {
   color: var(--text-color);
   text-transform: uppercase;
   letter-spacing: 5px;
-  text-shadow: 3px 3px var(--secondary-neon), -3px -3px var(--primary-neon);
+  text-shadow:
+    3px 3px var(--secondary-neon),
+    -3px -3px var(--primary-neon);
   animation: glitch 3s infinite;
 }
 
@@ -412,4 +414,12 @@ h1.glitch-title {
   border-radius: 4px;
 }
 
-
+/* SEO Description */
+.seo-desc {
+  margin-top: 2rem;
+  font-size: 1rem;
+  color: #aaa;
+  max-width: 600px;
+  text-align: center;
+  line-height: 1.6;
+}
