@@ -29,19 +29,25 @@ const db = new sqlite3.Database("./users.db", (err) => {
     console.error("Error opening database:", err.message);
   } else {
     console.log("Connected to the SQLite database.");
+    
+    // Create users table if not exists with max_level
     db.run(
       `CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
             password TEXT,
-            high_score INTEGER DEFAULT 0
+            high_score INTEGER DEFAULT 0,
+            max_level INTEGER DEFAULT 1
         )`,
       (err) => {
-        if (err) {
-          console.error("Error creating table:", err.message);
-        }
-      },
+        if (err) console.error("Error creating table:", err.message);
+      }
     );
+
+    // Attempt to add max_level column if it doesn't exist (for existing DBs)
+    db.run(`ALTER TABLE users ADD COLUMN max_level INTEGER DEFAULT 1`, (err) => {
+        // Ignore error if column already exists
+    });
   }
 });
 
@@ -81,7 +87,7 @@ app.post("/api/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const sql = `INSERT INTO users (username, password) VALUES (?, ?)`;
+    const sql = `INSERT INTO users (username, password, max_level) VALUES (?, ?, 1)`;
     db.run(sql, [username, hashedPassword], function (err) {
       if (err) {
         if (err.message.includes("UNIQUE constraint failed")) {
@@ -94,7 +100,7 @@ app.post("/api/register", async (req, res) => {
       res.status(201).json({
         message: "User registered successfully",
         token,
-        user: { id: this.lastID, username, highScore: 0 },
+        user: { id: this.lastID, username, highScore: 0, maxLevel: 1 },
       });
     });
   } catch (error) {
@@ -131,6 +137,7 @@ app.post("/api/login", (req, res) => {
             id: user.id,
             username: user.username,
             highScore: user.high_score,
+            maxLevel: user.max_level || 1,
           },
         });
       } else {
@@ -144,11 +151,16 @@ app.post("/api/login", (req, res) => {
 
 // Get User Profile
 app.get("/api/me", authenticateToken, (req, res) => {
-  const sql = `SELECT id, username, high_score FROM users WHERE id = ?`;
+  const sql = `SELECT id, username, high_score, max_level FROM users WHERE id = ?`;
   db.get(sql, [req.user.id], (err, user) => {
     if (err) return res.sendStatus(500);
     if (!user) return res.sendStatus(404);
-    res.json(user);
+    res.json({
+        id: user.id,
+        username: user.username,
+        highScore: user.high_score,
+        maxLevel: user.max_level || 1
+    });
   });
 });
 
@@ -164,10 +176,24 @@ app.post("/api/score", authenticateToken, (req, res) => {
   // Only update if new score is higher
   db.run(sql, [score, req.user.id, score], function (err) {
     if (err) return res.status(500).json({ error: err.message });
-
-    // changes might be 0 if score wasn't higher, which is fine
     res.json({ message: "Score processed", updated: this.changes > 0 });
   });
+});
+
+// Update Level Progress
+app.post("/api/progress", authenticateToken, (req, res) => {
+    const { level } = req.body;
+
+    if (typeof level !== "number") {
+        return res.status(400).json({ error: "Invalid level" });
+    }
+
+    const sql = `UPDATE users SET max_level = ? WHERE id = ? AND max_level < ?`;
+    // Only update if new level is higher
+    db.run(sql, [level, req.user.id, level], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Progress saved", updated: this.changes > 0 });
+    });
 });
 
 // Get Leaderboard (Top 10)

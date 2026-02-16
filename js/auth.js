@@ -88,21 +88,18 @@ const Auth = {
     },
 
     updateUI(isLoggedIn) {
-        const loginBtn = document.getElementById('menu-login-btn');
-        const registerBtn = document.getElementById('menu-register-btn');
+        const authButtonsContainer = document.querySelector('.auth-buttons');
         const userStatus = document.getElementById('user-status');
         const usernameDisplay = document.getElementById('username-display');
 
         if (isLoggedIn && this.user) {
-            if (loginBtn) loginBtn.classList.add('hidden');
-            if (registerBtn) registerBtn.classList.add('hidden');
+            if (authButtonsContainer) authButtonsContainer.classList.add('hidden');
             if (userStatus) {
                 userStatus.classList.remove('hidden');
                 usernameDisplay.textContent = this.user.username;
             }
         } else {
-            if (loginBtn) loginBtn.classList.remove('hidden');
-            if (registerBtn) registerBtn.classList.remove('hidden');
+            if (authButtonsContainer) authButtonsContainer.classList.remove('hidden');
             if (userStatus) userStatus.classList.add('hidden');
         }
     },
@@ -206,6 +203,28 @@ const Auth = {
             });
         } catch (e) {
             console.error('Failed to submit score', e);
+        }
+    },
+
+    async submitProgress(level) {
+        if (!this.token) return;
+
+        // Optimistically update local user object
+        if (this.user && level > this.user.maxLevel) {
+            this.user.maxLevel = level;
+        }
+
+        try {
+            await fetch(`${API_URL}/progress`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({ level })
+            });
+        } catch (e) {
+            console.error('Failed to submit progress', e);
         }
     }
 };

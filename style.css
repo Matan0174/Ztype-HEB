@@ -252,6 +252,51 @@ h1.glitch-title {
   text-align: center;
 }
 
+.auth-buttons {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 500px; /* Or match menu-list width */
+  margin-top: 20px;
+}
+
+.auth-btn {
+  min-width: 150px;
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  border-width: 2px;
+}
+
+/* Login - Accent (Yellow) */
+.auth-btn.login {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  box-shadow: 0 0 10px rgba(255, 230, 0, 0.3);
+}
+
+.auth-btn.login:hover,
+.auth-btn.login:focus {
+  background: var(--accent-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 20px rgba(255, 230, 0, 0.6);
+}
+
+/* Register - Secondary Neon (Pink) */
+.auth-btn.register {
+    border-color: var(--secondary-neon);
+    color: var(--secondary-neon);
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+}
+
+.auth-btn.register:hover,
+.auth-btn.register:focus {
+    background: var(--secondary-neon);
+    color: var(--text-color);
+    box-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+}
+
 .neon-btn:hover,
 .neon-btn:focus {
   background: var(--primary-neon);

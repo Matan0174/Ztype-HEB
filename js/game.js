@@ -45,12 +45,34 @@ function levelComplete() {
   ui.completedLevelNumEl.innerText = state.level;
   ui.levelBonusEl.innerText = bonus;
 
+  // Submit progress: Current level completed, so unlock next level (state.level + 1)
+  Auth.submitProgress(state.level + 1);
+
   showScreen("level-complete-screen");
   playSound("lock");
 }
 
 function nextLevel() {
-  startLevel(state.level + 1);
+  const nextLvl = state.level + 1;
+  
+  // Check limitations
+  if (!Auth.user) {
+      if (nextLvl > 3) {
+          alert("הירשם כדי להמשיך לשלבים הבאים!");
+          showScreen("main-menu");
+          return;
+      }
+  } else {
+      if (nextLvl > GAME_CONFIG.LEVELS.MAX) {
+           // Completed all levels!
+           // Maybe show victory screen? For now just loop or stop.
+           alert("כל הכבוד! סיימת את כל השלבים!");
+           showScreen("main-menu");
+           return;
+      }
+  }
+
+  startLevel(nextLvl);
   state.mode = "playing";
   updateMultiplier(false);
   showScreen("none");
