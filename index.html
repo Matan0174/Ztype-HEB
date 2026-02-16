@@ -19,26 +19,29 @@
     />
     <meta property="og:url" content="https://ztype.matanel.online/" />
     <meta property="og:type" content="website" />
-    <meta name="keywords" content="משחק הקלדה, הקלדה עיוורת, משחק חלליות, לימוד הקלדה, משחקי מילים, זטייפ, ZType, הקלדה בעברית" />
+    <meta
+      name="keywords"
+      content="משחק הקלדה, הקלדה עיוורת, משחק חלליות, לימוד הקלדה, משחקי מילים, זטייפ, ZType, הקלדה בעברית"
+    />
     <meta name="robots" content="index, follow" />
-    
+
     <!-- Structured Data -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "ZType IL - משחק הקלדה בעברית",
-      "applicationCategory": "Game",
-      "operatingSystem": "Web",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "ILS"
-      },
-      "description": "משחק הקלדה מהיר בעברית שיעזור לכם לשפר את הדיוק והמהירות. הגנו על החללית וכתבו מילים כדי לנצח.",
-      "image": "https://ztype.matanel.online/favicon.png",
-      "url": "https://ztype.matanel.online/"
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "ZType IL - משחק הקלדה בעברית",
+        "applicationCategory": "Game",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "ILS"
+        },
+        "description": "משחק הקלדה מהיר בעברית שיעזור לכם לשפר את הדיוק והמהירות. הגנו על החללית וכתבו מילים כדי לנצח.",
+        "image": "https://ztype.matanel.online/favicon.png",
+        "url": "https://ztype.matanel.online/"
+      }
     </script>
     <link rel="canonical" href="https://ztype.matanel.online/" />
     <link rel="stylesheet" href="style.css" />
@@ -86,6 +89,12 @@
             <button id="menu-levels-btn" class="neon-btn secondary">
               בחירת שלב
             </button>
+            <button id="menu-login-btn" class="neon-btn secondary">
+              התחברות
+            </button>
+            <button id="menu-register-btn" class="neon-btn secondary">
+              הרשמה
+            </button>
             <button id="menu-guide-btn" class="neon-btn secondary">
               איך משחקים?
             </button>
@@ -93,9 +102,17 @@
               אודות
             </button>
           </div>
+          <div id="user-status" class="hidden">
+            <p>שלום, <span id="username-display">אורח</span></p>
+            <button id="menu-logout-btn" class="neon-btn small-btn">
+              התנתק
+            </button>
+          </div>
 
           <p class="seo-desc">
-            ZType IL הוא משחק הקלדה חלליות ממכר בעברית. שפרו את יכולות ההקלדה העיוורת שלכם, אתגרו את עצמכם עם מילים ברמות קושי שונות, והגיעו לשיא חדש! מתאים לכל הרמות.
+            ZType IL הוא משחק הקלדה חלליות ממכר בעברית. שפרו את יכולות ההקלדה
+            העיוורת שלכם, אתגרו את עצמכם עם מילים ברמות קושי שונות, והגיעו לשיא
+            חדש! מתאים לכל הרמות.
           </p>
         </div>
 
@@ -151,6 +168,55 @@
           </div>
           <button class="neon-btn back-btn" data-target="guide-screen">
             הבנתי, בוא נתחיל!
+          </button>
+        </div>
+
+        <!-- Register Screen -->
+        <div id="register-screen" class="screen">
+          <h2>הרשמה</h2>
+          <div class="content-box form-box">
+            <form id="register-form">
+              <div class="form-group">
+                <label for="reg-username">שם משתמש:</label>
+                <input type="text" id="reg-username" required minlength="3" />
+              </div>
+              <div class="form-group">
+                <label for="reg-password">סיסמה:</label>
+                <input
+                  type="password"
+                  id="reg-password"
+                  required
+                  minlength="6"
+                />
+              </div>
+              <button type="submit" class="neon-btn">הירשם</button>
+            </form>
+            <div id="register-message" class="message"></div>
+          </div>
+          <button class="neon-btn back-btn" data-target="register-screen">
+            חזרה
+          </button>
+        </div>
+
+        <!-- Login Screen -->
+        <div id="login-screen" class="screen">
+          <h2>התחברות</h2>
+          <div class="content-box form-box">
+            <form id="login-form">
+              <div class="form-group">
+                <label for="login-username">שם משתמש:</label>
+                <input type="text" id="login-username" required />
+              </div>
+              <div class="form-group">
+                <label for="login-password">סיסמה:</label>
+                <input type="password" id="login-password" required />
+              </div>
+              <button type="submit" class="neon-btn">התחבר</button>
+            </form>
+            <div id="login-message" class="message"></div>
+          </div>
+          <button class="neon-btn back-btn" data-target="login-screen">
+            חזרה
           </button>
         </div>
 
@@ -215,6 +281,7 @@
       </div>
     </div>
 
+    <script type="module" src="js/auth.js"></script>
     <script type="module" src="js/game.js"></script>
   </body>
 </html>

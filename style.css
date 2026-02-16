@@ -423,3 +423,100 @@ h1.glitch-title {
   text-align: center;
   line-height: 1.6;
 }
+
+/* Login & Register Styles */
+.form-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  text-align: right;
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  color: var(--primary-neon);
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.form-group input {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--primary-neon);
+  color: var(--text-color);
+  padding: 15px;
+  font-size: 1.1rem;
+  border-radius: 5px;
+  outline: none;
+  font-family: var(--font-main);
+  transition: all 0.3s;
+  width: 100%;
+}
+
+.form-group input:focus {
+  box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+  background: rgba(0, 243, 255, 0.05);
+  border-color: #fff;
+}
+
+.message {
+  margin-top: 15px;
+  font-size: 1.1rem;
+  text-align: center;
+  min-height: 1.5em;
+  font-weight: bold;
+  padding: 10px;
+  border-radius: 5px;
+  width: 100%;
+}
+
+.message.success {
+  color: #0f0;
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.message.error {
+  color: #f00;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+}
+
+#user-status {
+  margin-top: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 230, 0, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 230, 0, 0.3);
+  width: 100%;
+  max-width: 300px;
+}
+
+#user-status p {
+  font-size: 1.4rem;
+  color: var(--accent-color);
+  text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
+  margin: 0;
+}
+
+.small-btn {
+  padding: 8px 25px !important;
+  min-width: unset !important;
+  font-size: 1rem !important;
+  border-width: 1px;
+}

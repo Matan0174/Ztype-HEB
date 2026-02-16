@@ -1,3 +1,4 @@
+import Auth from "./auth.js";
 import { GAME_CONFIG } from "./config.js";
 import { 
     state, canvas, ctx, ui, 
@@ -101,6 +102,10 @@ function startGame(skipReset = false) {
 function gameOver() {
   state.mode = "gameover";
   ui.finalScoreEl.innerText = state.score;
+  
+  // Submit score to backend
+  Auth.submitScore(state.score);
+
   if (state.score > state.highScore) {
     state.highScore = state.score;
     localStorage.setItem("ztype_he_highscore", state.highScore);
