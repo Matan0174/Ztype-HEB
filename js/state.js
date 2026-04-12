@@ -45,6 +45,19 @@ export const bullets = [];
 export const particles = [];
 export let stars = []; // stars might be re-initialized
 export let levelWordDeck = [];
+export const usedWords = new Set();
+
+export function setStars(newStars) {
+    stars = newStars;
+}
+
+export function setLevelWordDeck(deck) {
+    levelWordDeck = deck;
+}
+
+export function clearUsedWords() {
+    usedWords.clear();
+}
 
 export function setStars(newStars) {
     stars = newStars;

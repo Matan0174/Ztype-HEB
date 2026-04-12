@@ -2,7 +2,7 @@ import { GAME_CONFIG } from "./config.js";
 import { 
     state, canvas, ctx, ui,
     enemies, bullets, particles, stars, levelWordDeck,
-    setLevelWordDeck, resetEntities, setTargetEnemy 
+    setLevelWordDeck, resetEntities, setTargetEnemy, usedWords, clearUsedWords 
 } from "./state.js";
 import { playSound, audioCtx, startMusic, stopMusic, toggleMute} from "./audio.js";
 import { Enemy } from "./entities/Enemy.js";
@@ -40,20 +40,35 @@ export function spawnEnemy() {
   if (state.enemiesSpawnedCount >= state.enemiesToSpawn) return;
 
   let word = "שגיאה";
+  let attempts = 0;
 
-  // Random Boss Logic
-  if (
-    state.level > 5 &&
-    Math.random() < 0.05
-  ) {
-    word = getRandomBossWord();
-  } else {
-    if (levelWordDeck.length === 0) {
-      setLevelWordDeck(getLevelWordPool(state.level));
+  do {
+    // Random Boss Logic
+    if (
+      state.level > 5 &&
+      Math.random() < 0.05
+    ) {
+      word = getRandomBossWord();
+    } else {
+      if (levelWordDeck.length === 0) {
+        let pool = getLevelWordPool(state.level);
+        let filteredPool = pool.filter(w => !usedWords.has(w));
+        // If we exhausted all words for this pool, reset used pool to avoid infinite loop
+        if (filteredPool.length === 0) {
+            clearUsedWords();
+            filteredPool = pool;
+        }
+        setLevelWordDeck(filteredPool);
+      }
+      if (levelWordDeck.length > 0) word = levelWordDeck.pop();
     }
-    if (levelWordDeck.length > 0) word = levelWordDeck.pop();
-  }
+    attempts++;
+  } while (
+    (enemies.some(e => e.fullWord === word) || usedWords.has(word)) && 
+    attempts < 20
+  );
 
+  usedWords.add(word);
   enemies.push(new Enemy(word));
   state.enemiesSpawnedCount++;
 }
@@ -69,7 +84,13 @@ export function startLevel(lvl) {
   resetEntities(); // clears enemies, targetEnemy
   state.spawnTimer = 0;
 
-  setLevelWordDeck(getLevelWordPool(state.level));
+  let pool = getLevelWordPool(state.level);
+  let filteredPool = pool.filter(w => !usedWords.has(w));
+  if (filteredPool.length === 0) {
+      clearUsedWords();
+      filteredPool = pool;
+  }
+  setLevelWordDeck(filteredPool);
 }
 
 // NOTE: levelComplete needs to show screen, which is UI logic. 

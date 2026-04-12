@@ -2,7 +2,7 @@ import Auth from "./auth.js";
 import { GAME_CONFIG } from "./config.js";
 import { 
     state, canvas, ctx, ui, 
-    enemies, bullets, stars, setStars 
+    enemies, bullets, stars, setStars, clearUsedWords
 } from "./state.js";
 import { audioCtx, playSound, toggleMute, startMusic } from "./audio.js";
 import { Star } from "./entities/Star.js";
@@ -98,7 +98,10 @@ export function togglePause() {
 function startGame(skipReset = false) {
   state.mode = "playing";
   state.score = 0;
-  if (!skipReset) state.level = 1;
+  if (!skipReset) {
+      state.level = 1;
+      clearUsedWords();
+  }
   startLevel(state.level);
   state.multiplier = 1;
   updateMultiplier(false);
