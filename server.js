@@ -1,5 +1,7 @@
+require("dotenv").config();
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
+const { Pool } = require("pg");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const path = require("path");
@@ -8,6 +10,7 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
+const usePostgres = !!process.env.DATABASE_URL;
 
 // Middleware
 app.use(express.json());
@@ -31,68 +34,109 @@ app.use(express.static(path.join(__dirname, ".")));
 // Database Adaptation Layer (SQLite vs PostgreSQL)
 // -----------------------------------------------------------------------------
 
-let db;
+let sqliteDb;
+let pgPool;
 
-// Abstract Database Interface to unify queries
-const DB = {
-  // Run a query that doesn't return rows (INSERT, UPDATE, DELETE)
-  run: async (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.run(sql, params, function (err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  },
+if (usePostgres) {
+  console.log("Using PostgreSQL database (Neon)...");
+  pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
 
-  // Get a single row
-  get: async (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-  },
+  pgPool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(255) UNIQUE,
+      password VARCHAR(255),
+      high_score INTEGER DEFAULT 0,
+      max_level INTEGER DEFAULT 1
+    )
+  `).catch((err) => console.error("Error creating PG table:", err));
+} else {
+  console.log("Using SQLite database (local mode)...");
+  sqliteDb = new sqlite3.Database("./users.db", (err) => {
+    if (err) console.error("Error opening SQLite DB:", err.message);
+    else {
+      console.log("Connected to SQLite.");
+      sqliteDb.run(
+        `CREATE TABLE IF NOT EXISTS users (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              username TEXT UNIQUE,
+              password TEXT,
+              high_score INTEGER DEFAULT 0,
+              max_level INTEGER DEFAULT 1
+          )`,
+        (err) => {
+          if (err) console.error("Error creating table in SQLite:", err);
+          else {
+            sqliteDb.run(
+              `ALTER TABLE users ADD COLUMN max_level INTEGER DEFAULT 1`,
+              (e) => {},
+            );
+          }
+        },
+      );
+    }
+  });
+}
 
-  // Get all rows
-  all: async (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  },
+const formatQueryForPg = (sql) => {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
 };
 
-// Initialize DB Connection
-console.log("Using SQLite database (local mode)...");
-db = new sqlite3.Database("./users.db", (err) => {
-  if (err) console.error("Error opening SQLite DB:", err.message);
-  else {
-    console.log("Connected to SQLite.");
-    db.run(
-      `CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT,
-            high_score INTEGER DEFAULT 0,
-            max_level INTEGER DEFAULT 1
-        )`,
-      (err) => {
-        if (err) console.error("Error creating table in SQLite:", err);
-        else {
-          // Migration for existing SQLite DBs
-          db.run(
-            `ALTER TABLE users ADD COLUMN max_level INTEGER DEFAULT 1`,
-            (e) => {},
-          );
-        }
-      },
-    );
-  }
-});
+const DB = {
+  run: async (sql, params = []) => {
+    if (usePostgres) {
+      let pgSql = formatQueryForPg(sql);
+      // Automatically add RETURNING id for INSERT queries if not present
+      if (pgSql.trim().toUpperCase().startsWith("INSERT") && !pgSql.toUpperCase().includes("RETURNING ID")) {
+        pgSql += " RETURNING id";
+      }
+      const res = await pgPool.query(pgSql, params);
+      const lastID = res.rows && res.rows.length > 0 ? res.rows[0].id : null;
+      return { lastID, changes: res.rowCount };
+    } else {
+      return new Promise((resolve, reject) => {
+        sqliteDb.run(sql, params, function (err) {
+          if (err) reject(err);
+          else resolve({ lastID: this.lastID, changes: this.changes });
+        });
+      });
+    }
+  },
+
+  get: async (sql, params = []) => {
+    if (usePostgres) {
+      const pgSql = formatQueryForPg(sql);
+      const res = await pgPool.query(pgSql, params);
+      return res.rows[0];
+    } else {
+      return new Promise((resolve, reject) => {
+        sqliteDb.get(sql, params, (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    }
+  },
+
+  all: async (sql, params = []) => {
+    if (usePostgres) {
+      const pgSql = formatQueryForPg(sql);
+      const res = await pgPool.query(pgSql, params);
+      return res.rows;
+    } else {
+      return new Promise((resolve, reject) => {
+        sqliteDb.all(sql, params, (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
+      });
+    }
+  },
+};
 
 // -----------------------------------------------------------------------------
 // Auth Helpers
