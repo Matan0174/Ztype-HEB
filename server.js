@@ -1,6 +1,5 @@
 require("dotenv").config();
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
 const { Pool } = require("pg");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -10,7 +9,6 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
-const usePostgres = !!process.env.DATABASE_URL;
 
 // Middleware
 app.use(express.json());
@@ -31,55 +29,29 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, ".")));
 
 // -----------------------------------------------------------------------------
-// Database Adaptation Layer (SQLite vs PostgreSQL)
+// Database Adaptation Layer (PostgreSQL)
 // -----------------------------------------------------------------------------
 
-let sqliteDb;
-let pgPool;
-
-if (usePostgres) {
-  console.log("Using PostgreSQL database (Neon)...");
-  pgPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
-
-  pgPool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      username VARCHAR(255) UNIQUE,
-      password VARCHAR(255),
-      high_score INTEGER DEFAULT 0,
-      max_level INTEGER DEFAULT 1
-    )
-  `).catch((err) => console.error("Error creating PG table:", err));
-} else {
-  console.log("Using SQLite database (local mode)...");
-  sqliteDb = new sqlite3.Database("./users.db", (err) => {
-    if (err) console.error("Error opening SQLite DB:", err.message);
-    else {
-      console.log("Connected to SQLite.");
-      sqliteDb.run(
-        `CREATE TABLE IF NOT EXISTS users (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              username TEXT UNIQUE,
-              password TEXT,
-              high_score INTEGER DEFAULT 0,
-              max_level INTEGER DEFAULT 1
-          )`,
-        (err) => {
-          if (err) console.error("Error creating table in SQLite:", err);
-          else {
-            sqliteDb.run(
-              `ALTER TABLE users ADD COLUMN max_level INTEGER DEFAULT 1`,
-              (e) => {},
-            );
-          }
-        },
-      );
-    }
-  });
+if (!process.env.DATABASE_URL) {
+  console.error("FATAL ERROR: DATABASE_URL environment variable is missing.");
+  process.exit(1);
 }
+
+console.log("Using PostgreSQL database (Neon)...");
+const pgPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+pgPool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE,
+    password VARCHAR(255),
+    high_score INTEGER DEFAULT 0,
+    max_level INTEGER DEFAULT 1
+  )
+`).catch((err) => console.error("Error creating PG table:", err));
 
 const formatQueryForPg = (sql) => {
   let index = 1;
@@ -88,53 +60,26 @@ const formatQueryForPg = (sql) => {
 
 const DB = {
   run: async (sql, params = []) => {
-    if (usePostgres) {
-      let pgSql = formatQueryForPg(sql);
-      // Automatically add RETURNING id for INSERT queries if not present
-      if (pgSql.trim().toUpperCase().startsWith("INSERT") && !pgSql.toUpperCase().includes("RETURNING ID")) {
-        pgSql += " RETURNING id";
-      }
-      const res = await pgPool.query(pgSql, params);
-      const lastID = res.rows && res.rows.length > 0 ? res.rows[0].id : null;
-      return { lastID, changes: res.rowCount };
-    } else {
-      return new Promise((resolve, reject) => {
-        sqliteDb.run(sql, params, function (err) {
-          if (err) reject(err);
-          else resolve({ lastID: this.lastID, changes: this.changes });
-        });
-      });
+    let pgSql = formatQueryForPg(sql);
+    // Automatically add RETURNING id for INSERT queries if not present
+    if (pgSql.trim().toUpperCase().startsWith("INSERT") && !pgSql.toUpperCase().includes("RETURNING ID")) {
+      pgSql += " RETURNING id";
     }
+    const res = await pgPool.query(pgSql, params);
+    const lastID = res.rows && res.rows.length > 0 ? res.rows[0].id : null;
+    return { lastID, changes: res.rowCount };
   },
 
   get: async (sql, params = []) => {
-    if (usePostgres) {
-      const pgSql = formatQueryForPg(sql);
-      const res = await pgPool.query(pgSql, params);
-      return res.rows[0];
-    } else {
-      return new Promise((resolve, reject) => {
-        sqliteDb.get(sql, params, (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        });
-      });
-    }
+    const pgSql = formatQueryForPg(sql);
+    const res = await pgPool.query(pgSql, params);
+    return res.rows[0];
   },
 
   all: async (sql, params = []) => {
-    if (usePostgres) {
-      const pgSql = formatQueryForPg(sql);
-      const res = await pgPool.query(pgSql, params);
-      return res.rows;
-    } else {
-      return new Promise((resolve, reject) => {
-        sqliteDb.all(sql, params, (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        });
-      });
-    }
+    const pgSql = formatQueryForPg(sql);
+    const res = await pgPool.query(pgSql, params);
+    return res.rows;
   },
 };
 
@@ -314,5 +259,5 @@ app.get("/api/leaderboard", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`Database: SQLite`);
+  console.log(`Database: PostgreSQL (Neon)`);
 });
