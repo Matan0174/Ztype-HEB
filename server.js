@@ -165,7 +165,7 @@ app.post("/api/login", async (req, res) => {
     ]);
 
     if (!user) {
-      return res.status(400).json({ error: "Invalid username or password" });
+      return res.status(400).json({ error: "שם המשתמש לא קיים" });
     }
 
     if (await bcrypt.compare(password, user.password)) {
@@ -181,7 +181,7 @@ app.post("/api/login", async (req, res) => {
         },
       });
     } else {
-      res.status(400).json({ error: "Invalid username or password" });
+      res.status(400).json({ error: "שם המשתמש קיים, אבל הסיסמה לא נכונה" });
     }
   } catch (error) {
     console.error(error);
