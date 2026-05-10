@@ -15,12 +15,14 @@ const Auth = {
                 if (res.ok) {
                     this.user = await res.json();
                     this.updateUI(true);
-                } else {
+                } else if (res.status === 401 || res.status === 403) {
                     this.logout();
+                } else {
+                    this.updateUI(false);
                 }
             } catch (e) {
                 console.error('Auth check failed', e);
-                this.logout();
+                this.updateUI(false);
             }
         } else {
             this.updateUI(false);
