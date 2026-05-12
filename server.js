@@ -43,7 +43,57 @@ const pgPool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-pgPool.query(`
+// Table creation is moved below DB initialization
+
+const formatQueryForPg = (sql) => {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
+};
+
+const withRetry = async (fn, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      console.warn(`DB query failed, retrying (${i + 1}/${retries})...`, err.message);
+      await new Promise(res => setTimeout(res, 1000));
+    }
+  }
+};
+
+const DB = {
+  run: async (sql, params = []) => {
+    let pgSql = formatQueryForPg(sql);
+    if (pgSql.trim().toUpperCase().startsWith("INSERT") && !pgSql.toUpperCase().includes("RETURNING ID")) {
+      pgSql += " RETURNING id";
+    }
+    return withRetry(async () => {
+      const res = await pgPool.query(pgSql, params);
+      const lastID = res.rows && res.rows.length > 0 ? res.rows[0].id : null;
+      return { lastID, changes: res.rowCount };
+    });
+  },
+
+  get: async (sql, params = []) => {
+    const pgSql = formatQueryForPg(sql);
+    return withRetry(async () => {
+      const res = await pgPool.query(pgSql, params);
+      return res.rows[0];
+    });
+  },
+
+  all: async (sql, params = []) => {
+    const pgSql = formatQueryForPg(sql);
+    return withRetry(async () => {
+      const res = await pgPool.query(pgSql, params);
+      return res.rows;
+    });
+  },
+};
+
+// Ensure users table exists with retry
+DB.run(`
   CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE,
@@ -52,36 +102,6 @@ pgPool.query(`
     max_level INTEGER DEFAULT 1
   )
 `).catch((err) => console.error("Error creating PG table:", err));
-
-const formatQueryForPg = (sql) => {
-  let index = 1;
-  return sql.replace(/\?/g, () => `$${index++}`);
-};
-
-const DB = {
-  run: async (sql, params = []) => {
-    let pgSql = formatQueryForPg(sql);
-    // Automatically add RETURNING id for INSERT queries if not present
-    if (pgSql.trim().toUpperCase().startsWith("INSERT") && !pgSql.toUpperCase().includes("RETURNING ID")) {
-      pgSql += " RETURNING id";
-    }
-    const res = await pgPool.query(pgSql, params);
-    const lastID = res.rows && res.rows.length > 0 ? res.rows[0].id : null;
-    return { lastID, changes: res.rowCount };
-  },
-
-  get: async (sql, params = []) => {
-    const pgSql = formatQueryForPg(sql);
-    const res = await pgPool.query(pgSql, params);
-    return res.rows[0];
-  },
-
-  all: async (sql, params = []) => {
-    const pgSql = formatQueryForPg(sql);
-    const res = await pgPool.query(pgSql, params);
-    return res.rows;
-  },
-};
 
 // -----------------------------------------------------------------------------
 // Auth Helpers
