@@ -246,4 +246,9 @@ bindUIEvents({ startGame, nextLevel, togglePause, toggleMute });
 
 // Initial Setup
 resize();
-showScreen("main-menu");
+showScreen("splash-screen");
+
+// Transition to main menu after loading animation completes
+setTimeout(() => {
+  showScreen("main-menu");
+}, 3200);
