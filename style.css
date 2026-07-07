@@ -769,3 +769,129 @@ h1.glitch-title {
   transition-delay: 1s;
 }
 
+/* Hidden input for mobile keyboard */
+#mobile-input-field {
+  position: absolute;
+  top: -100px;
+  left: -100px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1000;
+}
+
+#mobile-keyboard-btn {
+  font-size: 2rem;
+  cursor: pointer;
+  background: rgba(0, 243, 255, 0.1);
+  border: 1px solid rgba(0, 243, 255, 0.3);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+  transition: all 0.3s;
+}
+
+#mobile-keyboard-btn:hover {
+  background: var(--primary-neon);
+  color: var(--bg-color);
+  box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+  transform: scale(1.1);
+}
+
+/* Media Queries for Mobile Screens / התאמה למובייל */
+@media (max-width: 768px) {
+  h1.glitch-title,
+  .splash-logo {
+    font-size: 3rem !important;
+    letter-spacing: 3px !important;
+  }
+
+  .subtitle,
+  .splash-subtitle {
+    font-size: 1.1rem !important;
+    margin-bottom: 2rem !important;
+    letter-spacing: 2px !important;
+  }
+
+  .neon-btn {
+    padding: 12px 30px !important;
+    font-size: 1.2rem !important;
+    min-width: 200px !important;
+  }
+
+  .neon-btn.secondary {
+    font-size: 1rem !important;
+    padding: 10px 25px !important;
+  }
+
+  .auth-buttons {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .auth-btn {
+    width: 200px !important;
+    min-width: unset !important;
+  }
+
+  #hud-top {
+    padding: 0 20px !important;
+  }
+
+  .hud-item {
+    font-size: 1.1rem !important;
+  }
+
+  .hud-item.high-score {
+    font-size: 0.9rem !important;
+  }
+
+  #combo-container {
+    top: 60px !important;
+    left: 20px !important;
+  }
+
+  #combo-display {
+    font-size: 2rem !important;
+  }
+
+  .content-box {
+    padding: 20px !important;
+    font-size: 1rem !important;
+    margin-bottom: 2rem !important;
+    max-width: 90% !important;
+  }
+
+  .levels-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+    max-height: 50vh !important;
+  }
+
+  .level-btn {
+    padding: 10px 0 !important;
+    font-size: 1rem !important;
+  }
+
+  #game-over-screen h2 {
+    font-size: 2.5rem !important;
+  }
+
+  #level-complete-screen h2 {
+    font-size: 2.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .levels-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+

@@ -20,6 +20,8 @@ export const ui = {
     levelsGrid: document.getElementById("levels-grid"),
     retryLevelNumEl: document.getElementById("retry-level-num"),
     pauseGameBtn: document.getElementById("pause-game-btn"),
+    mobileInput: document.getElementById("mobile-input-field"),
+    mobileKeyboardBtn: document.getElementById("mobile-keyboard-btn"),
 };
 
 // Game State

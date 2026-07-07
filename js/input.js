@@ -108,8 +108,10 @@ export function handleKeydown(e, { togglePause, nextLevel, startGame, showScreen
   }
 
   if (state.mode !== "playing") return;
+  processTypedChar(e.key);
+}
 
-  const char = e.key;
+export function processTypedChar(char) {
   if (char.length !== 1) return;
 
   let hit = false;
@@ -137,5 +139,15 @@ export function handleKeydown(e, { togglePause, nextLevel, startGame, showScreen
     processHit(hitEnemy);
   } else {
     if (state.multiplier > 1) updateMultiplier(false);
+  }
+}
+
+export function handleMobileInput(e) {
+  if (state.mode !== "playing") return;
+  const val = e.target.value;
+  if (val.length > 0) {
+    const char = val.slice(-1);
+    processTypedChar(char);
+    e.target.value = "";
   }
 }

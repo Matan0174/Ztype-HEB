@@ -9,8 +9,16 @@ export function showScreen(screenId) {
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.remove("active"));
+  
   if (screenId !== "none") {
     document.getElementById(screenId).classList.add("active");
+    if (ui.mobileKeyboardBtn) ui.mobileKeyboardBtn.classList.add("hidden");
+  } else {
+    // Playing state
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (isTouchDevice && ui.mobileKeyboardBtn) {
+      ui.mobileKeyboardBtn.classList.remove("hidden");
+    }
   }
 
   if (screenId === "main-menu" || screenId === "game-over-screen") {
@@ -113,4 +121,11 @@ export function bindUIEvents({ startGame, nextLevel, togglePause, toggleMute }) 
             showScreen("main-menu"); 
         };
     });
+
+    if (ui.mobileKeyboardBtn && ui.mobileInput) {
+        ui.mobileKeyboardBtn.onclick = (e) => {
+            e.stopPropagation();
+            ui.mobileInput.focus();
+        };
+    }
 }

@@ -10,9 +10,13 @@ import { updateBullets, drawBullets } from "./entities/Bullet.js";
 import { createExplosion, updateParticles, drawParticles } from "./entities/Particle.js";
 import { spawnEnemy, startLevel, enemyHit, updateMultiplier } from "./logic.js";
 import { showScreen, bindUIEvents } from "./uiManager.js";
-import { handleKeydown } from "./input.js";
+import { handleKeydown, handleMobileInput } from "./input.js";
 
 // ---- Initialization ----
+
+if (ui.mobileInput) {
+  ui.mobileInput.addEventListener("input", handleMobileInput);
+}
 
 if (ui.highScoreEl) ui.highScoreEl.innerText = state.highScore;
 
@@ -25,6 +29,16 @@ function resize() {
   if (stars.length === 0) initStars();
 }
 window.addEventListener("resize", resize);
+
+function focusMobileInput() {
+  if (ui.mobileInput && state.mode === "playing") {
+    ui.mobileInput.focus();
+  }
+}
+canvas.addEventListener("click", focusMobileInput);
+canvas.addEventListener("touchstart", (e) => {
+  focusMobileInput();
+});
 
 function initStars() {
   const newStars = [];
@@ -76,6 +90,7 @@ function nextLevel() {
   state.mode = "playing";
   updateMultiplier(false);
   showScreen("none");
+  setTimeout(focusMobileInput, 100);
   if (audioCtx.state === "suspended") audioCtx.resume();
   state.lastTime = performance.now();
   requestAnimationFrame(gameLoop);
@@ -89,6 +104,7 @@ export function togglePause() {
   } else if (state.mode === "paused") {
     state.mode = "playing";
     showScreen("none");
+    setTimeout(focusMobileInput, 100);
     if (audioCtx.state === "suspended") audioCtx.resume();
     state.lastTime = performance.now();
     requestAnimationFrame(gameLoop);
@@ -110,6 +126,7 @@ function startGame(skipReset = false) {
   ui.levelEl.innerText = state.level;
 
   showScreen("none");
+  setTimeout(focusMobileInput, 100);
   ui.newHighScoreEl.classList.add("hidden");
   if (ui.pauseGameBtn) ui.pauseGameBtn.classList.remove("hidden");
 
