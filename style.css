@@ -14,13 +14,14 @@
   user-select: none;
 }
 
-body {
+html, body {
   background-color: var(--bg-color);
   color: var(--text-color);
   font-family: var(--font-main);
   overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
+  position: fixed;
 }
 
 #game-container {
@@ -165,6 +166,7 @@ canvas {
     opacity 0.3s ease,
     visibility 0.3s;
   z-index: 20;
+  overflow: hidden;
 }
 
 .screen.active {
@@ -771,12 +773,13 @@ h1.glitch-title {
 
 /* Hidden input for mobile keyboard */
 #mobile-input-field {
-  position: absolute;
-  top: -100px;
-  left: -100px;
-  width: 1px;
-  height: 1px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
   opacity: 0;
+  font-size: 16px; /* Prevents auto-zoom on iOS */
   pointer-events: none;
   z-index: -1000;
 }

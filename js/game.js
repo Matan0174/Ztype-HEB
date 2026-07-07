@@ -21,14 +21,33 @@ if (ui.mobileInput) {
 if (ui.highScoreEl) ui.highScoreEl.innerText = state.highScore;
 
 function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+  const container = document.getElementById("game-container");
+  if (container) {
+    container.style.width = `${width}px`;
+    container.style.height = `${height}px`;
+  }
+
+  canvas.width = width;
+  canvas.height = height;
   state.player.x = canvas.width / 2;
   state.player.y = canvas.height - GAME_CONFIG.PLAYER.Y_OFFSET;
 
   if (stars.length === 0) initStars();
 }
-window.addEventListener("resize", resize);
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", resize);
+  window.visualViewport.addEventListener("scroll", () => {
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+  });
+} else {
+  window.addEventListener("resize", resize);
+}
 
 function focusMobileInput() {
   if (ui.mobileInput && state.mode === "playing") {
