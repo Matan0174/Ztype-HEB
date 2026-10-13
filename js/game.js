@@ -218,6 +218,8 @@ function gameLoop(timestamp) {
   ctx.translate(state.player.x, state.player.y);
   ctx.rotate(angle);
 
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = GAME_CONFIG.PLAYER.COLOR_PRIMARY;
   ctx.fillStyle = GAME_CONFIG.PLAYER.COLOR_PRIMARY;
   ctx.beginPath();
   ctx.moveTo(0, 0);
@@ -254,16 +256,29 @@ function gameLoop(timestamp) {
       playSound("explosion");
       createExplosion(state.player.x, state.player.y, 100, "#ff0000");
       gameOver();
+      return;
     }
   }
 
   // 5. Bullets
-  updateBullets(dt, (enemy) => enemyHit(enemy, levelComplete));
+  updateBullets(dt, (enemy) => enemyHit(enemy, () => {
+    state.levelCompleteDelay = 0.5;
+  }));
   drawBullets(ctx);
 
   // 6. Particles
   updateParticles(dt);
   drawParticles(ctx);
+
+  // Delay runs on game time so pausing freezes it
+  if (state.levelCompleteDelay > 0) {
+    state.levelCompleteDelay -= dt;
+    if (state.levelCompleteDelay <= 0) {
+      state.levelCompleteDelay = 0;
+      levelComplete();
+      return;
+    }
+  }
   
   requestAnimationFrame(gameLoop);
 }

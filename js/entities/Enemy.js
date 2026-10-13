@@ -35,6 +35,7 @@ export class Enemy {
     this.hue = Math.floor(Math.random() * 60) + 300; // 300-360 range
     this.angle = 0;
     this.spinSpeed = (Math.random() - 0.5) * 2; // Radians per second
+    this.hitFlash = 0;
 
     // Spawn entrance animation
     this.targetY = this.y;
@@ -45,6 +46,7 @@ export class Enemy {
     const dx = state.player.x - this.x;
     const dy = state.player.y - this.y;
     this.angle += this.spinSpeed * dt;
+    if (this.hitFlash > 0) this.hitFlash -= dt;
 
     const dist = Math.sqrt(dx * dx + dy * dy);
 
@@ -54,15 +56,30 @@ export class Enemy {
     }
   }
 
-  draw(ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle);
+  get color() {
+    return this.isBoss
+      ? GAME_CONFIG.PLAYER.COLOR_SECONDARY
+      : `hsl(${this.hue}, 70%, 60%)`;
+  }
 
+  draw(ctx) {
     const isActive = state.targetEnemy === this;
     const baseColor = isActive
       ? GAME_CONFIG.PLAYER.COLOR_SECONDARY
       : `hsl(${this.hue}, 70%, 60%)`;
+
+    if (this.isBoss) {
+      const pulse = Math.sin(performance.now() / 200) * 4;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius + 10 + pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255, 0, 255, 0.4)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
 
     ctx.beginPath();
     // Shape drawing logic
@@ -91,9 +108,8 @@ export class Enemy {
     ctx.closePath();
 
     // Fill & Stroke
-    ctx.fillStyle = this.isBoss
-      ? GAME_CONFIG.PLAYER.COLOR_SECONDARY
-      : baseColor;
+    if (this.hitFlash > 0) ctx.fillStyle = "#ffffff";
+    else ctx.fillStyle = this.isBoss ? GAME_CONFIG.PLAYER.COLOR_SECONDARY : baseColor;
     // If active, add glow to shape
     if (isActive) {
       ctx.shadowBlur = 15;
@@ -110,26 +126,44 @@ export class Enemy {
 
     ctx.restore();
 
-    // Text Drawing
-    ctx.font = (this.isBoss ? "bold 30px" : "20px") + " Rubik";
-    ctx.textAlign = "center";
+    // Text: full word with typed letters dimmed, drawn right-to-left
+    ctx.save();
+    const fontSize = this.isBoss ? 30 : 20;
+    ctx.font = `${this.isBoss ? "bold " : ""}${fontSize}px Rubik`;
+    ctx.direction = "rtl";
+    ctx.textAlign = "right";
     ctx.textBaseline = "middle";
+
+    const fullWidth = ctx.measureText(this.fullWord).width;
+    const matchedWidth = ctx.measureText(this.matched).width;
+    const startX = this.x + fullWidth / 2;
+    const textY = this.y + this.radius + 25;
+
+    const padX = 10;
+    const boxH = fontSize + 12;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(this.x - fullWidth / 2 - padX, textY - boxH / 2, fullWidth + padX * 2, boxH, boxH / 2);
+    } else {
+      ctx.rect(this.x - fullWidth / 2 - padX, textY - boxH / 2, fullWidth + padX * 2, boxH);
+    }
+    ctx.fillStyle = isActive ? "rgba(0, 40, 50, 0.8)" : "rgba(10, 10, 25, 0.6)";
+    ctx.fill();
+    ctx.strokeStyle = isActive ? GAME_CONFIG.PLAYER.COLOR_PRIMARY : "rgba(255, 255, 255, 0.15)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (this.matched) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.fillText(this.matched, startX, textY);
+    }
 
     if (isActive) {
       ctx.shadowBlur = 10;
       ctx.shadowColor = GAME_CONFIG.PLAYER.COLOR_PRIMARY;
     }
-
     ctx.fillStyle = isActive ? GAME_CONFIG.PLAYER.COLOR_PRIMARY : "#ffffff";
-    const textYOffset = this.radius + 25;
-
-    // Draw remaining text
-    ctx.fillText(this.remaining, this.x, this.y + textYOffset);
-
-    // Optional: Draw matched part in different color or faint
-    // ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    // ctx.fillText(this.matched, this.x, this.y + textYOffset - 20); // Above?
-
-    ctx.shadowBlur = 0;
+    ctx.fillText(this.remaining, startX - matchedWidth, textY);
+    ctx.restore();
   }
 }

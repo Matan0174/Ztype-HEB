@@ -34,6 +34,7 @@ export const state = {
   maxMultiplier: 1,
   lastTime: 0,
   spawnTimer: 0,
+  levelCompleteDelay: 0,
   isMuted: false,
   enemiesToSpawn: 0,
   enemiesSpawnedCount: 0,

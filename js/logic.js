@@ -7,7 +7,7 @@ import {
 import { playSound, audioCtx, startMusic, stopMusic, toggleMute} from "./audio.js";
 import { Enemy } from "./entities/Enemy.js";
 import { bulletPool } from "./entities/Bullet.js";
-import { createExplosion } from "./entities/Particle.js";
+import { createExplosion, spawnFloatingText } from "./entities/Particle.js";
 import { getLevelWordPool, getRandomBossWord } from "./words.js";
 
 // Import gameLoop from game.js to restart it
@@ -83,6 +83,7 @@ export function startLevel(lvl) {
 
   resetEntities(); // clears enemies, targetEnemy
   state.spawnTimer = 0;
+  state.levelCompleteDelay = 0;
 
   let pool = getLevelWordPool(state.level);
   let filteredPool = pool.filter(w => !usedWords.has(w));
@@ -120,18 +121,21 @@ export function enemyHit(enemy, onLevelComplete) {
 
   // Knockback effect
   enemy.y -= GAME_CONFIG.ENEMY.KNOCKBACK_DISTANCE;
+  enemy.hitFlash = 0.08;
 
   if (enemy.remaining.length === 0) {
-    state.score += enemy.fullWord.length * 10 * state.multiplier;
+    const points = enemy.fullWord.length * 10 * state.multiplier;
+    state.score += points;
     ui.scoreEl.innerText = state.score;
 
     updateMultiplier(true);
     createExplosion(
       enemy.x,
       enemy.y,
-      enemy.isBoss ? 50 : 20,
-      GAME_CONFIG.PLAYER.COLOR_SECONDARY,
+      enemy.isBoss ? 60 : 25,
+      enemy.color,
     );
+    spawnFloatingText(enemy.x, enemy.y, `+${points}`, GAME_CONFIG.PLAYER.COLOR_PRIMARY);
     playSound("explosion");
 
     const index = enemies.indexOf(enemy);
@@ -141,7 +145,7 @@ export function enemyHit(enemy, onLevelComplete) {
     if (state.targetEnemy === enemy) setTargetEnemy(null);
 
     if (state.enemiesSpawnedCount >= state.enemiesToSpawn && enemies.length === 0) {
-      setTimeout(onLevelComplete, 500);
+      onLevelComplete();
     }
   }
 }
